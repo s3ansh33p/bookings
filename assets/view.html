@@ -1,0 +1,25 @@
+<!-- extends basic page.html -->
+{% extends "page.html" %}
+{% block content %}
+<h1>Test</h1>
+<!-- upload section -->
+<form onsubmit="uploadFile(event)">
+    <input type="file" name="file" id="file">
+    <input type="submit" value="Upload" name="submit">
+</form>
+
+<!-- script to include csrf token -->
+<script>
+    // include on the post request
+    function uploadFile(event) {
+        event.preventDefault();
+        var file = document.getElementById("file").files[0];
+        var formData = new FormData();
+        formData.append("file", file);
+        var request = new XMLHttpRequest();
+        request.open("POST", "/upload", true);
+        request.send(formData);
+    }
+</script>
+
+{% endblock %}

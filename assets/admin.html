@@ -1,0 +1,44 @@
+<!-- extends basic page.html -->
+{% extends "page.html" %}
+{% block content %}
+<h1>Admin Test</h1>
+<button onclick="createBooking()">Create Booking</button>
+<button onclick="getBookings()">Get Bookings</button>
+
+<script>
+    const csrf = init.csrfNonce;
+    
+    async function createBooking() {
+        const data = {
+            "team_id": 25,
+            "booking_time": new Date().toISOString(),
+            "notes": "test"
+        }
+        // post req to /api/v1/bookings
+        const response = await fetch('/api/v1/bookings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRF-Token': csrf
+            },
+            body: JSON.stringify(data)
+        });
+        const json = await response.json();
+        console.log(json);
+    }
+
+    async function getBookings() {
+        // get req to /api/v1/bookings/view
+        const response = await fetch('/api/v1/bookings/view', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRF-Token': csrf
+            }
+        });
+        const json = await response.json();
+        console.log(json);
+    }
+</script>
+
+{% endblock %}
