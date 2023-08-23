@@ -3,7 +3,7 @@
 from flask import Blueprint, request, render_template # only needed for Blueprint import
 from flask_restx import Namespace, Resource
 from CTFd.models import db
-from CTFd.utils.decorators import admins_only
+from CTFd.utils.decorators import admins_only, authed_only
 from CTFd.plugins.migrations import upgrade
 from CTFd.api import CTFd_API_v1
 
@@ -42,10 +42,10 @@ class Booking(db.Model):
 @bookings_namespace.route("")
 class BookingAdd(Resource):
     """
-	The Purpose of this API Endpoint is to allow an admin to add a new booking to the database.
+	The Purpose of this API Endpoint is to allow a user to add a new booking to the database.
 	"""
-    # user has to be authentificated as admin to call this endpoint    
-    @admins_only
+    # user has to be authentificated to call this endpoint    
+    @authed_only
     def post(self):
         # parses request arguements into data
         if request.content_type != "application/json":
@@ -85,10 +85,10 @@ class BookingAdd(Resource):
 @bookings_namespace.route("/view")
 class BookingView(Resource):
     """
-    The Purpose of this API Endpoint is to allow an admin to view all bookings.
+    The Purpose of this API Endpoint is to allow a user to view all bookings.
     """
-    # user has to be authentificated as admin to call this endpoint    
-    @admins_only
+    # user has to be authentificated to call this endpoint    
+    @authed_only
     def get(self):
         # get all bookings from database
         bookings = Booking.query.all()
@@ -109,3 +109,10 @@ def load(app):
     @admins_only
     def admin_bookings_listing():
         return render_template('plugins/bookings/assets/admin.html')
+
+    # add user route
+    @app.route("/bookings", methods=['GET'])
+    @authed_only
+    def bookings_listing():
+        return render_template('plugins/bookings/assets/user.html')
+    
