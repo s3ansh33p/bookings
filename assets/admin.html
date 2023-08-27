@@ -1,21 +1,178 @@
 <!-- extends basic page.html -->
 {% extends "page.html" %}
 {% block content %}
+
+<style>
+    /* custom form styles */
+    label {
+        width: 100%;
+    }
+</style>
+
 <!-- This is for admins AKA ComSSA people to manage all of the bookings.
      We have extra stuffs but I (sean) will add as needed, use the
      user page for now. -->
-<h1>Admin Test</h1>
-<button onclick="createBooking()">Create Booking</button>
-<button onclick="getBookings()">Get Bookings</button>
+<main class="container">
+    <h1>Admin Test</h1>
+    <button onclick="createBooking()">Create Booking</button>
+    <button onclick="getBookings()">Get Bookings</button>
+    <button onclick="deleteBookings()">Delete All Bookings</button>
+
+    <!-- form for creating a new booking type -->
+    <form action="/api/v1/bookings/types" id="createTypeForm" class="my-3 pb-5">
+        <div class="form-group">
+            <label for="name">Booking Type Name</label>
+            <input id="bookingName" type="text" name="name" placeholder="Booking Type Name" class="form-control">
+        </div>
+        <div class="form-group">
+            <label for="description">Booking Type Description:</label>
+            <textarea id="bookingDesc" name="description" placeholder="Booking Type Description" class="form-control"></textarea>
+        </div>
+        <input type="submit" value="Create Booking Type" class="btn btn-primary">
+    </form>
+
+    <!-- div to list all booking types -->
+    <h2>Current Booking Types</h2>
+    <div id="bookingTypes"></div>
+</main>
 
 <script>
     const csrf = init.csrfNonce;
+
+    // on ready, get all booking types
+    document.addEventListener("DOMContentLoaded", function() {
+        getBookingTypes();
+    });
+
+    async function getBookingTypes() {
+        // get req to /api/v1/bookings/types
+        const response = await fetch('/api/v1/bookings/types', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRF-Token': csrf
+            }
+        });
+        const json = await response.json();
+        // display booking types
+        const bookingTypes = document.getElementById("bookingTypes");
+        bookingTypes.innerHTML = "";
+        // generate mini form for each, with editable name and description (shows id at left).
+        // also has a delete button
+        for (const bookingType of json.data) {
+            const bookingTypeDiv = document.createElement("div");
+            bookingTypeDiv.innerHTML = `
+                <form action="/api/v1/bookings/types/${bookingType.id}" class="my-3 pb-5">
+                    <h3>Booking #${bookingType.id}</h3>
+                    <input type="hidden" name="id" value="${bookingType.id}">
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input id="bookingName" type="text" name="name" value="${bookingType.name}" placeholder="Name" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description:</label>
+                        <textarea id="bookingDesc" name="description" placeholder="Description" class="form-control">${bookingType.description}</textarea>
+                    </div>
+                    <input type="submit" value="Update Booking Type" class="btn btn-primary">
+                    <input type="submit" value="Delete Booking Type" class="btn btn-danger">
+            `;
+            bookingTypes.appendChild(bookingTypeDiv);
+            // add listener to form
+            bookingTypeDiv.addEventListener("submit",
+                function(event) {
+                    event.preventDefault();
+                    // get name and description from form
+                    const id = bookingTypeDiv.querySelector("input[name=id]").value;
+                    const name = bookingTypeDiv.querySelector("#bookingName").value;
+                    const description = bookingTypeDiv.querySelector("#bookingDesc").value;
+                    let mode = "update";
+                    // check if delete was clicked
+                    if (event.submitter.value == "Delete Booking Type") {
+                        mode = "delete";
+                    }
+                    individualBookingTypeCallback(id, name, description, mode);
+                }
+            );
+            
+        }
+    }
+
+    async function individualBookingTypeCallback(id, name, description, mode) {
+        // if mode is delete, make delete req
+        if (mode == "delete") {
+            const response = await fetch('/api/v1/bookings/types', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'CSRF-Token': csrf
+                },
+                body: JSON.stringify({
+                    "id": id,
+                    "name": name,
+                    "description": description
+                })
+            });
+            const json = await response.json();
+            // on success, remove the div
+            if (json.success) {
+                document.getElementById("bookingTypes").removeChild(document.getElementById("bookingTypes").querySelector(`form[action="/api/v1/bookings/types/${id}"]`).parentElement);
+            }
+        } else {
+            // else make update req
+            const response = await fetch('/api/v1/bookings/types', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'CSRF-Token': csrf
+                },
+                body: JSON.stringify({
+                    "id": id,
+                    "name": name,
+                    "description": description
+                })
+            });
+        }
+    }
+
+    document.getElementById("createTypeForm").addEventListener("submit", async function(event) {
+        event.preventDefault();
+        const data = {
+            "name": document.getElementById("bookingName").value,
+            "description": document.getElementById("bookingDesc").value
+        }
+        // post req to /api/v1/bookings
+        const response = await fetch('/api/v1/bookings/types', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRF-Token': csrf
+            },
+            body: JSON.stringify(data)
+        });
+        const json = await response.json();
+        // on success, get all booking types again
+        if (json.success) getBookingTypes();
+    });
     
+    async function getBookings() {
+        // get req to /api/v1/bookings/view
+        const response = await fetch('/api/v1/bookings/view', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRF-Token': csrf
+            }
+        });
+        const json = await response.json();
+        console.log(json);
+    }
+
     async function createBooking() {
         const data = {
             "team_id": 25,
             "booking_time": new Date().toISOString(),
-            "notes": "test"
+            "notes": "test",
+            "type_id": "1"
         }
         // post req to /api/v1/bookings
         const response = await fetch('/api/v1/bookings', {
@@ -30,10 +187,9 @@
         console.log(json);
     }
 
-    async function getBookings() {
-        // get req to /api/v1/bookings/view
-        const response = await fetch('/api/v1/bookings/view', {
-            method: 'GET',
+    async function deleteBookings() {
+        const response = await fetch('/api/v1/bookings', {
+            method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
                 'CSRF-Token': csrf
