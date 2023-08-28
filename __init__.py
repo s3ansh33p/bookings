@@ -126,7 +126,9 @@ class BookingView(Resource):
     @authed_only
     def get(self):
         # get all bookings from database
-        bookings = Booking.query.all()
+        # bookings = Booking.query.all()
+        # sort by type_id, then by booking_time
+        bookings = Booking.query.order_by(Booking.booking_time, Booking.workshop_id).all()
         # print bookings to console
         print(bookings)
         # make bookings serializable
