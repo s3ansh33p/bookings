@@ -10,6 +10,26 @@
         <p>Loading table...</p>
     </div>
 
+
+    <div class="modal fade" id="delete-booking-modal" tabindex="-1" aria-labelledby="delete-model-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="delete-model-label">Confirm Booking Cancellation</h5>
+                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+                <div class="modal-body">
+                  Note that you may rebook this slot at a later time, but it will be subject to availability.
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                  <button type="button" class="btn btn-danger" id="delete-booking-modal-btn">Confirm Cancellation</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </main>
 
 <script>
@@ -21,10 +41,27 @@
     // on ready, get all bookings
     document.addEventListener("DOMContentLoaded", async function() {
         const bookingTypes = await getBookingTypes();
-        const bookings = await getBookings();
+        const bookings = await getBookings(bookingTypes);
         const teams = await getBookingTeams();
         createBookingTable(bookingTypes, bookings, teams);
     });
+
+    async function addWorkshopDescriptions(bookingTypes) {
+        // add descriptions to workshop descriptions div
+        const workshopDescriptions = document.getElementById("workshop-descriptions");
+        workshopDescriptions.innerHTML = "";
+        for (bookingType of bookingTypes.data) {
+            const workshopDescription = document.createElement("div");
+            // add class to div
+            workshopDescription.classList.add("col-12", "col-md-6", "col-lg-4", "mb-1");
+
+            workshopDescription.innerHTML = `
+                <h2>${bookingType.name}</h2>
+                ${bookingType.description}
+            `;
+            workshopDescriptions.appendChild(workshopDescription);
+        }
+    }
 
     async function createBookingTable(bookingTypes, bookings, teams) {
         
@@ -85,7 +122,7 @@
                                 break;
                             }
                         }
-                        bookingField += `<button class="btn btn-warning w-100">${teamName}</button>`
+                        bookingField += `<button class="btn btn-warning w-100" data-time="${timeString}" data-type="${bookingTypes.data[j].id}" onclick="deleteBookingModal(this)">${teamName}</button>`
                     }
                 }
                 if (bookingField == `<td class="p-0">`) {
@@ -114,7 +151,48 @@
         bookingsDiv.innerHTML = html;
     }
     
-    async function getBookings() {
+    function deleteBookingModal(el) {
+        let time = el.getAttribute("data-time");
+        let type = el.getAttribute("data-type");
+
+        let delBtn = document.getElementById("delete-booking-modal-btn");
+        delBtn.setAttribute("onclick", `deleteBooking('${time}', ${type})`);
+
+        // set variable for deletion
+        $('#delete-booking-modal').modal('show');
+    }
+
+    async function deleteBooking(segment, type_id) {
+        // delete req to /api/v1/bookings
+        let time = new Date(`2023 Sep 9 ${segment}`);
+        const data = {
+            "booking_time": time,
+            "type_id": type_id
+        }
+        const response = await fetch('/api/v1/bookings', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRF-Token': csrf
+            },
+            body: JSON.stringify(data)
+        });
+        const json = await response.json();
+        // on success, update element
+        if (json.success) {
+            // query button by time and type to get element
+            let el = document.querySelector(`button[data-time="${segment}"][data-type="${type_id}"]`);
+            el.innerHTML = "Book";
+            el.classList.remove("btn-warning");
+            el.classList.add("btn-primary");
+            // change onclick
+            el.setAttribute("onclick", "createBooking(this)");
+            // also close modal
+            $('#delete-booking-modal').modal('hide');
+        }
+    }
+        
+    async function getBookings(bookingTypes) {
         // get req to /api/v1/bookings/view
         const response = await fetch('/api/v1/bookings/view', {
             method: 'GET',
@@ -124,13 +202,19 @@
             }
         });
         const json = await response.json();
+
+        // instead filter so only bookings with type_id in bookingTypes are returned
         let filtered = json.data.filter(booking => {
-            const bookingTime = new Date(booking.booking_time);
-            const day = bookingTime.getDate();
-            const month = bookingTime.getMonth();
-            const year = bookingTime.getFullYear();
-            return day == 9 && month == 8 && year == 2023;
+            // return booking if in bookingTypes
+            return bookingTypes.data.some(type => type.id == booking.type_id);
         });
+        // sort by booking_time
+        filtered.sort((a, b) => {
+            const aTime = new Date(a.booking_time);
+            const bTime = new Date(b.booking_time);
+            return aTime - bTime;
+        });
+        
         return {data: filtered};
     }
 

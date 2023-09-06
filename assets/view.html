@@ -2,10 +2,18 @@
 {% extends "page.html" %}
 {% block content %}
 <main class="container pb-3">
-    <h1>Mentor Bookings - Sunday</h1>
+    <h1>Mentor Bookings - Saturday</h1>
 
     <!-- bookings div once loaded -->
     <div id="bookings" class="mt-3">
+        <!-- start with loading status -->
+        <p>Loading...</p>
+    </div>
+
+    <h1>Mentor Bookings - Sunday</h1>
+
+    <!-- bookings div once loaded -->
+    <div id="bookings2" class="mt-3">
         <!-- start with loading status -->
         <p>Loading...</p>
     </div>
@@ -14,20 +22,37 @@
 
 <script>
     const csrf = init.csrfNonce;
-    const startTime = 9
-    const endTime = 12
-    const segment = 0.5
 
     // on ready, get all bookings
     document.addEventListener("DOMContentLoaded", async function() {
         const bookingTypes = await getBookingTypes();
-        const bookings = await getBookings();
+        const bookings = await getBookings(bookingTypes);
+        // only return bookings for day 1
+        let day1Bookings = bookings.data.filter(booking => {
+            const bookingTime = new Date(booking.booking_time);
+            return bookingTime.getDate() == 9;
+        });
+        let day2Bookings = bookings.data.filter(booking => {
+            const bookingTime = new Date(booking.booking_time);
+            return bookingTime.getDate() == 10;
+        });
         const teams = await getBookingTeams();
-        createBookingTable(bookingTypes, bookings, teams);
+        await createBookingTable(bookingTypes, { data: day1Bookings }, teams, 1);
+        await createBookingTable(bookingTypes, { data: day2Bookings }, teams, 2);
     });
 
-    async function createBookingTable(bookingTypes, bookings, teams) {
+    async function createBookingTable(bookingTypes, bookings, teams, opt = 1) {
         
+        let startTime = 9
+        let endTime = 12
+
+        if (opt == 1) {
+            startTime = 10
+            endTime = 18
+        }
+
+        const segment = 0.5
+
         let workshopName = "TMP"
 
         // generate table html
@@ -55,7 +80,7 @@
             // if (!halfHour) endTimeString = `${Math.floor(i + segment)}:30`
 
             let bookingFields = "";
-            let curTime = new Date(`2023 Sep 10 ${timeString}`).getTime();
+            let curTime = new Date(`2023 Sep ${8 + opt} ${timeString}`).getTime();
             
             let curTimeBookings = [];
             // loop through bookings for this time and store in curTimeBookings
@@ -69,7 +94,6 @@
                     break;
                 }
             }
-
             // reading from curTimeBookings, add booking fields
             for (let j = 0; j < bookingTypes.data.length; j++) {
                 let bookingField = `<td class="p-0">`
@@ -89,7 +113,7 @@
                     }
                 }
                 if (bookingField == `<td class="p-0">`) {
-                    bookingField += `<button class="btn btn-primary w-100" data-time="${timeString}" data-type="${bookingTypes.data[j].id}">No Booking</button>`
+                    bookingField += `<button class="btn btn-primary w-100" data-time="${timeString}" data-type="${bookingTypes.data[j].id}">Book</button>`
                 }
                 bookingField += `</td>`
                 bookingFields += bookingField;
@@ -110,11 +134,12 @@
         html += rows.join("")
         html += "</table>"
         // add to bookings div
-        const bookingsDiv = document.getElementById("bookings");
+        let bookingsDiv = document.getElementById("bookings");
+        if (opt == 2) bookingsDiv = document.getElementById("bookings2");
         bookingsDiv.innerHTML = html;
     }
     
-    async function getBookings() {
+    async function getBookings(bookingTypes) {
         // get req to /api/v1/bookings/view
         const response = await fetch('/api/v1/bookings/view', {
             method: 'GET',
@@ -124,13 +149,19 @@
             }
         });
         const json = await response.json();
+
+        // instead filter so only bookings with type_id in bookingTypes are returned
         let filtered = json.data.filter(booking => {
-            const bookingTime = new Date(booking.booking_time);
-            const day = bookingTime.getDate();
-            const month = bookingTime.getMonth();
-            const year = bookingTime.getFullYear();
-            return day == 10 && month == 8 && year == 2023;
+            // return booking if in bookingTypes
+            return bookingTypes.data.some(type => type.id == booking.type_id);
         });
+        // sort by booking_time
+        filtered.sort((a, b) => {
+            const aTime = new Date(a.booking_time);
+            const bTime = new Date(b.booking_time);
+            return aTime - bTime;
+        });
+        
         return {data: filtered};
     }
 

@@ -62,7 +62,7 @@
     // on ready, get all bookings
     document.addEventListener("DOMContentLoaded", async function() {
         const bookingTypes = await getBookingTypes();
-        const bookings = await getBookings();
+        const bookings = await getBookings(bookingTypes);
         addWorkshopDescriptions(bookingTypes);
         createBookingTable(bookingTypes, bookings);
     });
@@ -242,7 +242,7 @@
         }
     }
 
-    async function getBookings() {
+    async function getBookings(bookingTypes) {
         // get req to /api/v1/bookings/view
         const response = await fetch('/api/v1/bookings/view', {
             method: 'GET',
@@ -252,13 +252,19 @@
             }
         });
         const json = await response.json();
+
+        // instead filter so only bookings with type_id in bookingTypes are returned
         let filtered = json.data.filter(booking => {
-            const bookingTime = new Date(booking.booking_time);
-            const day = bookingTime.getDate();
-            const month = bookingTime.getMonth();
-            const year = bookingTime.getFullYear();
-            return day == 9 && month == 8 && year == 2023;
+            // return booking if in bookingTypes
+            return bookingTypes.data.some(type => type.id == booking.type_id);
         });
+        // sort by booking_time
+        filtered.sort((a, b) => {
+            const aTime = new Date(a.booking_time);
+            const bTime = new Date(b.booking_time);
+            return aTime - bTime;
+        });
+        
         return {data: filtered};
     }
 
