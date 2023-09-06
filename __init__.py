@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, render_template # only needed for Blueprint import
 from flask_restx import Namespace, Resource
-from CTFd.models import db
+from CTFd.models import db, Teams
 from CTFd.utils.decorators import admins_only, authed_only
 from CTFd.plugins.migrations import upgrade
 from CTFd.api import CTFd_API_v1
@@ -317,6 +317,21 @@ class WorkshopsDelete(Resource):
         db.session.commit()
         return {"success": True}
 
+# route to view all team names and team_ids, even if hidden
+@bookings_namespace.route("/teams")
+class BookingTeams(Resource):
+    """
+    The Purpose of this API Endpoint is to allow a guest to view all teams.
+    """
+
+    @authed_only
+    def get(self):
+        # get all teams from database
+        teams = Teams.query.all()
+        # only return id and name
+        teams = [{"id": team.id, "name": team.name} for team in teams]
+        return {"success": True, "data": teams}
+
 def load(app):
 
     # drop table workshops
@@ -345,3 +360,8 @@ def load(app):
     @authed_only
     def bookings_mentor_listing():
         return render_template('plugins/bookings/assets/mentor.html')
+
+    # add route for guest mentors to view bookings
+    @app.route("/bookings/view", methods=['GET'])
+    def bookings_view_listing():
+        return render_template('plugins/bookings/assets/view.html')
