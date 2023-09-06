@@ -61,8 +61,6 @@
     async function createBookingTable(bookingTypes, bookings) {
         
         let workshopName = "TMP"
-        console.log(bookingTypes.data)
-        console.log(bookings.data)
 
         // generate table html
         let html = `<table class="table table-bordered text-center">
@@ -228,12 +226,19 @@
             }
         });
         const json = await response.json();
-        return json;
+        let filtered = json.data.filter(booking => {
+            const bookingTime = new Date(booking.booking_time);
+            const day = bookingTime.getDate();
+            const month = bookingTime.getMonth();
+            const year = bookingTime.getFullYear();
+            return day == 9 && month == 8 && year == 2023;
+        });
+        return {data: filtered};
     }
 
     async function getBookingTypes() {
         // get req to /api/v1/bookings/types
-        const response = await fetch('/api/v1/bookings/types', {
+        const response = await fetch('/api/v1/bookings/types?day=1', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

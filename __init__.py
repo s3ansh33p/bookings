@@ -96,10 +96,16 @@ class BookingAdd(Resource):
         if booking:
             return {"success": False, "error": "Booking already exists"}, 400
         
-        # a team can only have one booking per time
-        booking = Booking.query.filter_by(team_id=data.get("team_id"), booking_time=parsed_datetime).first()
-        if booking:
-            return {"success": False, "error": "Team already has a booking at this time"}, 400
+        # a team can only have one booking per time on the same day
+        bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
+        for booking in bookings:
+            # check if booking is on the same day
+            print(booking.booking_time.date(), parsed_datetime.date(), booking.booking_time.time(), parsed_datetime.time())
+            if booking.booking_time.date() == parsed_datetime.date():
+                # check if booking is on the same time
+                if booking.booking_time.time() == parsed_datetime.time():
+                    return {"success": False, "error": "Team already has a booking at this time"}, 400
+
 
         # create new booking
         booking = Booking(
@@ -154,13 +160,11 @@ class BookingView(Resource):
     @authed_only
     def get(self):
         # get all bookings from database
-        # bookings = Booking.query.all()
-        # sort by type_id, then by booking_time
-        bookings = Booking.query.order_by(Booking.booking_time, Booking.workshop_id).all()
+        bookings = Booking.query.all()
         # make bookings serializable
         bookings = [booking.serialize() for booking in bookings]
         return {"success": True, "data": bookings}
-    
+
 # route to delete all bookings for admins
 @bookings_namespace.route("/delete")
 class BookingDelete(Resource):
@@ -218,11 +222,19 @@ class Workshops(Resource):
     # get all booking types
     @authed_only
     def get(self):
-        # get all booking types from database
-        booking_types = Workshop.query.all()
-        # make booking types serializable
-        booking_types = [booking_type.serialize() for booking_type in booking_types]
-        return {"success": True, "data": booking_types}
+        # query by day
+        if request.args.get("day"):
+            # get all booking types from database
+            booking_types = Workshop.query.filter_by(day=request.args.get("day")).all()
+            # make booking types serializable
+            booking_types = [booking_type.serialize() for booking_type in booking_types]
+            return {"success": True, "data": booking_types}
+        else:
+            # get all booking types from database
+            booking_types = Workshop.query.all()
+            # make booking types serializable
+            booking_types = [booking_type.serialize() for booking_type in booking_types]
+            return {"success": True, "data": booking_types}
     
     # delete a booking type
     @admins_only
