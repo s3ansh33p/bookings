@@ -19,19 +19,22 @@ class Workshop(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80))
     description = db.Column(db.Text)
+    day = db.Column(db.Integer)
 
-    def __init__(self, name, description):
+    def __init__(self, name, description, day):
         self.name = name
         self.description = description
+        self.day = day
 
     def __repr__(self):
-        return "<Workshop {0} - {1}>".format(self.name, self.description)
+        return "<Workshop {0} - {1} - {2}>".format(self.id, self.name, self.description, self.day)
 
     def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
-            "description": self.description
+            "description": self.description,
+            "day": self.day
         }
     
 class Booking(db.Model):
@@ -88,6 +91,16 @@ class BookingAdd(Resource):
 
         parsed_datetime = datetime.strptime(data.get("booking_time"), '%Y-%m-%dT%H:%M:%S.%fZ')
 
+        # check if booking already exists
+        booking = Booking.query.filter_by(workshop_id=data.get("type_id"), booking_time=parsed_datetime).first()
+        if booking:
+            return {"success": False, "error": "Booking already exists"}, 400
+        
+        # a team can only have one booking per time
+        booking = Booking.query.filter_by(team_id=data.get("team_id"), booking_time=parsed_datetime).first()
+        if booking:
+            return {"success": False, "error": "Team already has a booking at this time"}, 400
+
         # create new booking
         booking = Booking(
             team_id=data.get("team_id"),
@@ -96,22 +109,37 @@ class BookingAdd(Resource):
             type_id=data.get("type_id")
         )
 
-        # print booking to console
-        print('\n')
-        print(repr(booking))
-        print('\n')
-
         # add booking to database
         db.session.add(booking)
         db.session.commit()
 
         return {"success": True, "data": repr(booking)}
     
-    # route to delete all bookings
-    @admins_only
+    # route to delete a booking
+    @authed_only
     def delete(self):
-        # delete all bookings from database
-        Booking.query.delete()
+        # delete a booking from type_id and time
+        # parses request arguements into data
+        if request.content_type != "application/json":
+            data = request.form
+        else:
+            data = request.get_json()
+
+        # check for fields
+        if not data.get("type_id"):
+            return {"success": False, "error": "Missing type_id"}, 400
+        if not data.get("booking_time"):
+            return {"success": False, "error": "Missing booking_time"}, 400
+        
+        # get booking from database
+        booking = Booking.query.filter_by(workshop_id=data.get("type_id"), booking_time=data.get("booking_time")).first()
+
+        # if not found, return error
+        if not booking:
+            return {"success": False, "error": "Booking not found"}, 400
+
+        # delete booking from database
+        db.session.delete(booking)
         db.session.commit()
 
         return {"success": True}
@@ -129,11 +157,25 @@ class BookingView(Resource):
         # bookings = Booking.query.all()
         # sort by type_id, then by booking_time
         bookings = Booking.query.order_by(Booking.booking_time, Booking.workshop_id).all()
-        # print bookings to console
-        print(bookings)
         # make bookings serializable
         bookings = [booking.serialize() for booking in bookings]
         return {"success": True, "data": bookings}
+    
+# route to delete all bookings for admins
+@bookings_namespace.route("/delete")
+class BookingDelete(Resource):
+    """
+    The Purpose of this API Endpoint is to allow an admin to delete all bookings.
+    """
+    # user must be admin
+    @admins_only
+    def delete(self):
+        # delete all bookings from database
+        bookings = Booking.query.all()
+        for booking in bookings:
+            db.session.delete(booking)
+        db.session.commit()
+        return {"success": True}
 
 # route to create new booking types
 @bookings_namespace.route("/types")
@@ -157,17 +199,15 @@ class Workshops(Resource):
             return {"success": False, "error": "Missing name"}, 400
         if not data.get("description"):
             return {"success": False, "error": "Missing description"}, 400
+        if not data.get("day"):
+            return {"success": False, "error": "Missing day"}, 400
 
         # create new booking type
         booking_type = Workshop(
             name=data.get("name"),
-            description=data.get("description")
+            description=data.get("description"),
+            day=data.get("day")
         )
-
-        # print booking type to console
-        print('\n')
-        print(repr(booking_type))
-        print('\n')
 
         # add booking type to database
         db.session.add(booking_type)
@@ -180,8 +220,6 @@ class Workshops(Resource):
     def get(self):
         # get all booking types from database
         booking_types = Workshop.query.all()
-        # print booking types to console
-        print(booking_types)
         # make booking types serializable
         booking_types = [booking_type.serialize() for booking_type in booking_types]
         return {"success": True, "data": booking_types}
@@ -201,11 +239,6 @@ class Workshops(Resource):
 
         # get booking type from database
         booking_type = Workshop.query.filter_by(id=data.get("id")).first()
-
-        # print booking type to console
-        print('\n')
-        print(repr(booking_type))
-        print('\n')
 
         # delete booking type from database
         db.session.delete(booking_type)
@@ -229,30 +262,44 @@ class Workshops(Resource):
             return {"success": False, "error": "Missing name"}, 400
         if not data.get("description"):
             return {"success": False, "error": "Missing description"}, 400
+        if not data.get("day"):
+            return {"success": False, "error": "Missing day"}, 400
 
         # get booking type from database
         booking_type = Workshop.query.filter_by(id=data.get("id")).first()
 
-        # print booking type to console
-        print('\n')
-        print(repr(booking_type))
-        print('\n')
-
         # update booking type
         booking_type.name = data.get("name")
         booking_type.description = data.get("description")
-
-        # print booking type to console
-        print('\n')
-        print(repr(booking_type))
-        print('\n')
+        booking_type.day = data.get("day")
 
         # commit changes to database
         db.session.commit()
 
         return {"success": True, "data": repr(booking_type)}    
 
+# register types/delete to delete all types with admin rights
+@bookings_namespace.route("/types/delete")
+class WorkshopsDelete(Resource):
+    """
+    The Purpose of this API Endpoint is to allow an admin to delete all booking types.
+    """
+
+    # user must be admin
+    @admins_only
+    def delete(self):
+        # delete all booking types from database
+        booking_types = Workshop.query.all()
+        for booking_type in booking_types:
+            db.session.delete(booking_type)
+        db.session.commit()
+        return {"success": True}
+
 def load(app):
+
+    # drop table workshops
+    # Workshop.__table__.drop(app.db.engine)
+
     upgrade()
     
     app.db.create_all()
@@ -271,3 +318,8 @@ def load(app):
     def bookings_listing():
         return render_template('plugins/bookings/assets/user.html')
     
+    # add user route for mentor bookings
+    @app.route("/bookings/mentors", methods=['GET'])
+    @authed_only
+    def bookings_mentor_listing():
+        return render_template('plugins/bookings/assets/mentor.html')
