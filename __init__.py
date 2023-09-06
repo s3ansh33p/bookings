@@ -96,16 +96,26 @@ class BookingAdd(Resource):
         if booking:
             return {"success": False, "error": "Booking already exists"}, 400
         
-        # a team can only have one booking per time on the same day
+        # # a team can only have one booking per time on the same day
+        # bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
+        # for booking in bookings:
+        #     # check if booking is on the same day
+        #     print(booking.booking_time.date(), parsed_datetime.date(), booking.booking_time.time(), parsed_datetime.time())
+        #     if booking.booking_time.date() == parsed_datetime.date():
+        #         # check if booking is on the same time
+        #         if booking.booking_time.time() == parsed_datetime.time():
+        #             return {"success": False, "error": "Team already has a booking at this time"}, 400
+
+        # a team can have a maximum of 4 bookings per day
         bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
+        count = 0
         for booking in bookings:
             # check if booking is on the same day
-            print(booking.booking_time.date(), parsed_datetime.date(), booking.booking_time.time(), parsed_datetime.time())
             if booking.booking_time.date() == parsed_datetime.date():
-                # check if booking is on the same time
-                if booking.booking_time.time() == parsed_datetime.time():
-                    return {"success": False, "error": "Team already has a booking at this time"}, 400
-
+                count += 1
+                print(count, repr(booking), parsed_datetime.date())
+        if count >= 4:
+            return {"success": False, "error": "Your team already has 2 hours worth of bookings for this day"}, 400
 
         # create new booking
         booking = Booking(

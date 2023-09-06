@@ -2,8 +2,15 @@
 {% extends "page.html" %}
 {% block content %}
 <main class="container pb-3">
-    <h1>Mentor Bookings</h1>
+    <h1>Mentor Bookings - Sunday</h1>
 
+    <!-- section for workshop descriptions -->
+    <div class="row mt-5" id="workshop-descriptions">
+        <div class="col">
+            <p>Loading descriptions...</p>
+        </div>
+    </div>
+    
     <!-- bookings div once loaded -->
     <div id="bookings" class="mt-3">
         <!-- start with loading status -->
@@ -39,7 +46,7 @@
                 </button>
             </div>
             <div class="toast-body">
-                You already have another booking at this time
+                Your team already has 2 hours worth of bookings for this day
             </div>
         </div>
     </div>
@@ -49,14 +56,32 @@
     const csrf = init.csrfNonce;
     const startTime = 9
     const endTime = 12
-    const segment = 0.25
+    const segment = 0.5
 
     // on ready, get all bookings
     document.addEventListener("DOMContentLoaded", async function() {
         const bookingTypes = await getBookingTypes();
         const bookings = await getBookings();
+        addWorkshopDescriptions(bookingTypes);
         createBookingTable(bookingTypes, bookings);
     });
+
+    async function addWorkshopDescriptions(bookingTypes) {
+        // add descriptions to workshop descriptions div
+        const workshopDescriptions = document.getElementById("workshop-descriptions");
+        workshopDescriptions.innerHTML = "";
+        for (bookingType of bookingTypes.data) {
+            const workshopDescription = document.createElement("div");
+            // add class to div
+            workshopDescription.classList.add("col-12", "col-md-6", "col-lg-4", "mb-1");
+
+            workshopDescription.innerHTML = `
+                <h2>${bookingType.name}</h2>
+                ${bookingType.description}
+            `;
+            workshopDescriptions.appendChild(workshopDescription);
+        }
+    }
 
     async function createBookingTable(bookingTypes, bookings) {
         
@@ -121,7 +146,7 @@
             }
 
             const row = `<tr>
-                <td class="p-0 px-1">${timeString}</td>
+                <td class="p-0 px-1 align-middle">${timeString}</td>
                 ${bookingFields}
             </tr>`
             // const row = `<tr>
