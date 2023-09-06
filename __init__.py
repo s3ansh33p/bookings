@@ -101,34 +101,38 @@ class BookingAdd(Resource):
         if not booking_type:
             return {"success": False, "error": "Booking type not found"}, 400
         
-        booking_types = Workshop.query.filter_by(day=booking_type.day).all()
-        
-        # check if booking is on the same day
-        
-        
-        # # a team can only have one booking per time on the same day
-        # bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
-        # for booking in bookings:
-        #     # check if booking is on the same day
-        #     print(booking.booking_time.date(), parsed_datetime.date(), booking.booking_time.time(), parsed_datetime.time())
-        #     if booking.booking_time.date() == parsed_datetime.date():
-        #         # check if booking is on the same time
-        #         if booking.booking_time.time() == parsed_datetime.time():
-        #             return {"success": False, "error": "Team already has a booking at this time"}, 400
+        # if admin team (team_id of 25), skip validation
+        if data.get("team_id") != 25:
 
-        # a team can have a maximum of 4 bookings per day
-        bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
-        # filter down the bookings to only the ones found in booking_types
-        bookings = [b for b in bookings if b.workshop_id in [bt.id for bt in booking_types]]
-        
-        count = 0
-        for b in bookings:
+            booking_types = Workshop.query.filter_by(day=booking_type.day).all()
+            
             # check if booking is on the same day
-            if b.booking_time.date() == parsed_datetime.date():
-                count += 1
-                print(count, repr(b), parsed_datetime.date())
-        if count >= 4:
-            return {"success": False, "error": "Your team already has 2 hours worth of bookings for this day"}, 400
+            
+            # # a team can only have one booking per time on the same day
+            # bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
+            # for booking in bookings:
+            #     # check if booking is on the same day
+            #     print(booking.booking_time.date(), parsed_datetime.date(), booking.booking_time.time(), parsed_datetime.time())
+            #     if booking.booking_time.date() == parsed_datetime.date():
+            #         # check if booking is on the same time
+            #         if booking.booking_time.time() == parsed_datetime.time():
+            #             return {"success": False, "error": "Team already has a booking at this time"}, 400
+
+            # a team can have a maximum of 4 bookings per day
+            bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
+            # filter down the bookings to only the ones found in booking_types
+            bookings = [b for b in bookings if b.workshop_id in [bt.id for bt in booking_types]]
+            
+            count = 0
+            for b in bookings:
+                # check if booking is on the same day
+                if b.booking_time.date() == parsed_datetime.date():
+                    count += 1
+                    print(count, repr(b), parsed_datetime.date())
+            if count >= 4:
+                return {"success": False, "error": "Your team already has 2 hours worth of bookings for this day"}, 400
+        else:
+            print("Admin team, skipping validation")
 
         # create new booking
         booking = Booking(
