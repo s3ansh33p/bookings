@@ -86,6 +86,12 @@
         <a href="/bookings" class="ml-auto float-right">(Navigate to Workshop Bookings)</a>
     </div>
 
+    <!-- learn about mentors link /mentors -->
+    <div class="alert alert-info" role="alert">
+        <h4 class="alert-heading">Learn about our mentors</h4>
+        <p class="m-0">Click <a href="/mentors">here</a> to learn more about our mentors and their areas of expertise.</p>
+    </div>
+
     <!-- bookings div once loaded -->
     <div id="bookings" class="mt-3">
         <!-- start with loading status -->
@@ -176,7 +182,9 @@
                     <th class="p-0" scope="col">Time</th>`
         // add booking type headers
         for (let i = 0; i < bookingTypes.data.length; i++) {
-            html += `<th class="p-0" scope="col" data-id="${bookingTypes.data[i].id}">${bookingTypes.data[i].name}</th>`
+            html += `<th class="p-0" scope="col" data-id="${bookingTypes.data[i].id}">
+                <a href="/mentors#${bookingTypes.data[i].name.split(" ")[0]}">${bookingTypes.data[i].name}</a>
+            </th>`
         }
         html += `</tr>
             </thead>`
