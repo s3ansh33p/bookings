@@ -2,7 +2,10 @@
 {% extends "page.html" %}
 {% block content %}
 <main class="container pb-3">
-    <h1>Mentor Bookings - Saturday</h1>
+    <div class="d-flex align-items-center">
+        <h1>Mentor Bookings - Saturday</h1>
+        <a href="/admin/bookings/view" class="ml-auto float-right">(Navigate to Admin View)</a>
+    </div>
 
     <!-- bookings div once loaded -->
     <div id="bookings" class="mt-3">
