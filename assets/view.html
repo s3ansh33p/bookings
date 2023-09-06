@@ -1,6 +1,85 @@
 <!-- extends basic page.html -->
 {% extends "page.html" %}
 {% block content %}
+
+<style>
+    /* 
+        should be in a css file, but lazy ┬─┬ノ( º _ ºノ) 
+    */
+    :root {
+        --font-color: #fff;
+        --background: #171f69;
+        --sec: #171f69;
+        --sec-h: #0f1450;
+        --sec-c: #ffffff;
+        --background-rgb: 23,31,105;
+        --primary: #f04e23;
+        --primary-h: #c42a00;
+        --primary-c: #ffffff;
+        --highlight: #d80140;
+        --bs-font-sans-serif: 'Pattanakarn', sans-serif;
+        --font-primary: 'Montserrat', sans-serif;
+    }
+    
+    /*
+        too lazy to rewrite other sections at this stage
+        ideally, should change class in styling/js 
+    */
+    .btn-success {
+        background-color: var(--primary);
+        border-color: var(--primary);
+        color: var(--primary-c);
+        --bs-btn-hover-color: var(--primary-c);
+        --bs-btn-color: var(--primary-c);
+        --bs-btn-bg: var(--primary);
+        --bs-btn-border-color: var(--primary);
+        --bs-btn-hover-color: var(--primary-c);
+        --bs-btn-hover-bg: var(--primary-h);
+        --bs-btn-hover-border-color: var(--primary-h);
+        --bs-btn-focus-shadow-rgb: 34,192,239;
+        --bs-btn-active-color: var(--primary-c);
+        --bs-btn-active-bg: var(--primary-h);
+        --bs-btn-active-border-color: var(--primary-h);
+        --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+        --bs-btn-disabled-color: var(--primary-c);
+        --bs-btn-disabled-bg: var(--primary);
+        --bs-btn-disabled-border-color: var(--primary);
+    }
+    .btn-success:hover {
+        color: var(--primary-c);
+        background-color: var(--primary-h);
+        border-color: var(--primary-h);
+    }
+    
+    .btn-primary {
+        background-color: var(--sec);
+        border-color: var(--sec);
+        color: var(--sec-c);
+        --bs-btn-hover-color: var(--sec-c);
+        --bs-btn-color: var(--sec-c);
+        --bs-btn-bg: var(--sec);
+        --bs-btn-border-color: var(--sec);
+        --bs-btn-hover-color: var(--sec-c);
+        --bs-btn-hover-bg: var(--sec-h);
+        --bs-btn-hover-border-color: var(--sec-h);
+        --bs-btn-focus-shadow-rgb: var(--background-rgb);
+        --bs-btn-active-color: var(--sec-c);
+        --bs-btn-active-bg: var(--sec-h);
+        --bs-btn-active-border-color: var(--sec-h);
+        --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+        --bs-btn-disabled-color: var(--sec-c);
+        --bs-btn-disabled-bg: var(--sec);
+        --bs-btn-disabled-border-color: var(--sec);
+    }
+    
+    .btn-primary:hover {
+        color: var(--sec-c);
+        background-color: var(--sec-h);
+        border-color: var(--sec-h);
+    }
+    
+</style>
+
 <main class="container pb-3">
     <div class="d-flex align-items-center">
         <h1>Mentor Bookings - Saturday</h1>
@@ -112,7 +191,7 @@
                                 break;
                             }
                         }
-                        bookingField += `<button class="btn btn-warning w-100">${teamName}</button>`
+                        bookingField += `<button class="btn btn-success w-100">${teamName}</button>`
                     }
                 }
                 if (bookingField == `<td class="p-0">`) {
