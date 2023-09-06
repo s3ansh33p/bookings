@@ -14,8 +14,10 @@
      user page for now. -->
 <main class="container">
     <h1>Booking - Admin</h1>
-    <button onclick="deleteBookings()">Delete All Bookings</button>
-    <button onclick="deleteBookingTypes()">Delete All Types</button>
+    <a href="/admin/bookings/view">View Bookings</a> - 
+    <a href="/bookings/view">View Mentor Bookings</a>
+    <!-- <button onclick="deleteBookings()">Delete All Bookings</button> -->
+    <!-- <button onclick="deleteBookingTypes()">Delete All Types</button> -->
 
     <!-- form for creating a new booking type -->
     <form action="/api/v1/bookings/types" id="createTypeForm" class="my-3 pb-5">

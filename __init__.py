@@ -343,11 +343,17 @@ def load(app):
     register_plugin_assets_directory(app, base_path="/plugins/bookings/assets/")
     CTFd_API_v1.add_namespace(bookings_namespace, '/bookings')
 
-    # # add admin route
+    # add admin route
     @app.route("/admin/bookings", methods=['GET'])
     @admins_only
     def admin_bookings_listing():
         return render_template('plugins/bookings/assets/admin.html')
+    
+    # add admin route to view bookings
+    @app.route("/admin/bookings/view", methods=['GET'])
+    @admins_only
+    def admin_bookings_view_listing():
+        return render_template('plugins/bookings/assets/admin_view.html')
 
     # add user route
     @app.route("/bookings", methods=['GET'])
