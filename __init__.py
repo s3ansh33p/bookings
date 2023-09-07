@@ -386,5 +386,6 @@ def load(app):
 
     # add route for guest mentors to view bookings
     @app.route("/bookings/view", methods=['GET'])
+    @authed_only
     def bookings_view_listing():
         return render_template('plugins/bookings/assets/view.html')
