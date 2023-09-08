@@ -174,7 +174,7 @@
             // if (!halfHour) endTimeString = `${Math.floor(i + segment)}:30`
 
             let bookingFields = "";
-            let curTime = new Date(`2023 Sep 9 ${timeString}`).getTime();
+            let curTime = new Date(`Sep 9 2023 ${timeString}`).getTime();
             
             let curTimeBookings = [];
             // loop through bookings for this time and store in curTimeBookings
@@ -246,7 +246,7 @@
 
     async function deleteBooking(segment, type_id) {
         // delete req to /api/v1/bookings
-        let time = new Date(`2023 Sep 9 ${segment}`);
+        let time = new Date(`Sep 9 2023 ${segment}`);
         const data = {
             "booking_time": time,
             "type_id": type_id

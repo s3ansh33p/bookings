@@ -202,7 +202,7 @@
             // if (!halfHour) endTimeString = `${Math.floor(i + segment)}:30`
 
             let bookingFields = "";
-            let curTime = new Date(`2023 Sep ${8 + opt} ${timeString}`).getTime();
+            let curTime = new Date(`Sep ${8 + opt} 2023 ${timeString}`).getTime();
             
             let curTimeBookings = [];
             // loop through bookings for this time and store in curTimeBookings
@@ -268,7 +268,7 @@
 
     async function deleteBooking(segment, type_id, dayOffset) {
         // delete req to /api/v1/bookings
-        let time = new Date(`2023 Sep ${9 + dayOffset} ${segment}`);
+        let time = new Date(`Sep ${9 + dayOffset} 2023 ${segment}`);
         const data = {
             "booking_time": time,
             "type_id": type_id
@@ -301,7 +301,7 @@
         let segment = el.getAttribute("data-time");
         let type_id = el.getAttribute("data-type");
         let dayOffset = el.parentElement.parentElement.parentElement.parentElement.parentElement.id == "bookings" ? 0 : 1;
-        let time = new Date(`2023 Sep ${9 + dayOffset} ${segment}`);
+        let time = new Date(`Sep ${9 + dayOffset} 2023 ${segment}`);
         // temp data
         const data = {
             "team_id": init.teamId,
