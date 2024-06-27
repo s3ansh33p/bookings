@@ -14,27 +14,43 @@ from datetime import datetime
 
 bookings_namespace = Namespace("bookings", description="Endpoint for booking system")
 
-class Workshop(db.Model):
-    # stores name, description
+
+class SessionType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80))
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return "<SessionType {0} - {1}>".format(self.id, self.name)
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "name": self.name
+        }
+
+class Session(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80))
     description = db.Column(db.Text)
-    day = db.Column(db.Integer)
+    session_type = db.Column(db.Integer)
 
-    def __init__(self, name, description, day):
+    def __init__(self, name, description, session_type):
         self.name = name
         self.description = description
-        self.day = day
+        self.session_type = session_type
 
     def __repr__(self):
-        return "<Workshop {0} - {1} - {2}>".format(self.id, self.name, self.description, self.day)
+        return "<Workshop {0} - {1} - {2} - {3}>".format(self.id, self.name, self.description, self.session_type)
 
     def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "day": self.day
+            "session_type": self.session_type
         }
     
 class Booking(db.Model):
@@ -42,14 +58,12 @@ class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     team_id = db.Column(db.Integer)
     booking_time = db.Column(db.DateTime)
-    notes = db.Column(db.Text)
-    workshop_id = db.Column(db.Integer)
+    session_id = db.Column(db.Integer)
 
-    def __init__(self, team_id, booking_time, notes, type_id):
+    def __init__(self, team_id, booking_time, session_id):
         self.team_id = team_id
         self.booking_time = booking_time
-        self.notes = notes
-        self.workshop_id = type_id
+        self.session_id = session_id
 
     def __repr__(self):
         return "<Booking {0} for team {1} at {2}>".format(self.id, self.team_id, self.booking_time)
@@ -61,12 +75,23 @@ class Booking(db.Model):
             "id": self.id,
             "team_id": self.team_id,
             "booking_time": booking_time,
-            "notes": self.notes,
-            "type_id": self.workshop_id
+            "session_id": self.session_id
         }
         
 @bookings_namespace.route("")
 class BookingAdd(Resource):
+    """
+    The Purpose of this API Endpoint is to allow a user to view all bookings.
+    """
+    # user has to be authentificated to call this endpoint    
+    @authed_only
+    def get(self):
+        # get all bookings from database
+        bookings = Booking.query.all()
+        # make bookings serializable
+        bookings = [booking.serialize() for booking in bookings]
+        return {"success": True, "data": bookings}
+    
     """
 	The Purpose of this API Endpoint is to allow a user to add a new booking to the database.
 	"""
@@ -86,42 +111,30 @@ class BookingAdd(Resource):
             return {"success": False, "error": "Missing booking_time"}, 400
         if not data.get("notes"):
             return {"success": False, "error": "Missing notes"}, 400
-        if not data.get("type_id"):
-            return {"success": False, "error": "Missing type_id"}, 400
+        if not data.get("session_id"):
+            return {"success": False, "error": "Missing session_id"}, 400
 
         parsed_datetime = datetime.strptime(data.get("booking_time"), '%Y-%m-%dT%H:%M:%S.%fZ')
 
         # check if booking already exists
-        booking = Booking.query.filter_by(workshop_id=data.get("type_id"), booking_time=parsed_datetime).first()
+        booking = Booking.query.filter_by(workshop_id=data.get("session_id"), booking_time=parsed_datetime).first()
         if booking:
             return {"success": False, "error": "Booking already exists"}, 400
         
         # get day from type_id
-        booking_type = Workshop.query.filter_by(id=data.get("type_id")).first()
-        if not booking_type:
-            return {"success": False, "error": "Booking type not found"}, 400
+        session = Session.query.filter_by(id=data.get("session_id")).first()
+        if not session:
+            return {"success": False, "error": "session not found"}, 400
         
         # if admin team (team_id of 25), skip validation
         if data.get("team_id") != 25:
 
-            booking_types = Workshop.query.filter_by(day=booking_type.day).all()
+            sessions = Session.query.filter_by(day=session.day).all()
             
-            # check if booking is on the same day
-            
-            # # a team can only have one booking per time on the same day
-            # bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
-            # for booking in bookings:
-            #     # check if booking is on the same day
-            #     print(booking.booking_time.date(), parsed_datetime.date(), booking.booking_time.time(), parsed_datetime.time())
-            #     if booking.booking_time.date() == parsed_datetime.date():
-            #         # check if booking is on the same time
-            #         if booking.booking_time.time() == parsed_datetime.time():
-            #             return {"success": False, "error": "Team already has a booking at this time"}, 400
-
             # a team can have a maximum of 4 bookings per day
             bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
-            # filter down the bookings to only the ones found in booking_types
-            bookings = [b for b in bookings if b.workshop_id in [bt.id for bt in booking_types]]
+            # filter down the bookings to only the ones found in sessions
+            bookings = [b for b in bookings if b.workshop_id in [bt.id for bt in sessions]]
             
             count = 0
             for b in bookings:
@@ -139,7 +152,7 @@ class BookingAdd(Resource):
             team_id=data.get("team_id"),
             booking_time=parsed_datetime,
             notes=data.get("notes"),
-            type_id=data.get("type_id")
+            type_id=data.get("session_id")
         )
 
         # add booking to database
@@ -159,13 +172,13 @@ class BookingAdd(Resource):
             data = request.get_json()
 
         # check for fields
-        if not data.get("type_id"):
-            return {"success": False, "error": "Missing type_id"}, 400
+        if not data.get("session_id"):
+            return {"success": False, "error": "Missing session_id"}, 400
         if not data.get("booking_time"):
             return {"success": False, "error": "Missing booking_time"}, 400
         
         # get booking from database
-        booking = Booking.query.filter_by(workshop_id=data.get("type_id"), booking_time=data.get("booking_time")).first()
+        booking = Booking.query.filter_by(workshop_id=data.get("session_id"), booking_time=data.get("booking_time")).first()
 
         # if not found, return error
         if not booking:
@@ -177,21 +190,6 @@ class BookingAdd(Resource):
 
         return {"success": True}
     
-# route to view bookings
-@bookings_namespace.route("/view")
-class BookingView(Resource):
-    """
-    The Purpose of this API Endpoint is to allow a user to view all bookings.
-    """
-    # user has to be authentificated to call this endpoint    
-    @authed_only
-    def get(self):
-        # get all bookings from database
-        bookings = Booking.query.all()
-        # make bookings serializable
-        bookings = [booking.serialize() for booking in bookings]
-        return {"success": True, "data": bookings}
-
 # route to delete all bookings for admins
 @bookings_namespace.route("/delete")
 class BookingDelete(Resource):
@@ -208,12 +206,12 @@ class BookingDelete(Resource):
         db.session.commit()
         return {"success": True}
 
-# route to create new booking types
-@bookings_namespace.route("/types")
-class Workshops(Resource):
+# route to create new session
+@bookings_namespace.route("/session")
+class Sessions(Resource):
     """
-    The Purpose of this API Endpoint is to allow an admin to create a new booking type.
-    This could be for a workshop for example
+    The Purpose of this API Endpoint is to allow an admin to create a new session.
+    This could be for a session for example
     """
 
     # user must be admin
@@ -230,40 +228,40 @@ class Workshops(Resource):
             return {"success": False, "error": "Missing name"}, 400
         if not data.get("description"):
             return {"success": False, "error": "Missing description"}, 400
-        if not data.get("day"):
-            return {"success": False, "error": "Missing day"}, 400
+        if not data.get("session_type"):
+            return {"success": False, "error": "Missing session type"}, 400
 
-        # create new booking type
-        booking_type = Workshop(
+        # create new session
+        session = Session(
             name=data.get("name"),
             description=data.get("description"),
-            day=data.get("day")
+            day=data.get("session_type")
         )
 
-        # add booking type to database
-        db.session.add(booking_type)
+        # add session to database
+        db.session.add(session)
         db.session.commit()
 
-        return {"success": True, "data": repr(booking_type)}
+        return {"success": True, "data": repr(session)}
 
-    # get all booking types
+    # get all sessions
     @authed_only
     def get(self):
         # query by day
         if request.args.get("day"):
-            # get all booking types from database
-            booking_types = Workshop.query.filter_by(day=request.args.get("day")).all()
-            # make booking types serializable
-            booking_types = [booking_type.serialize() for booking_type in booking_types]
-            return {"success": True, "data": booking_types}
+            # get all sessions nfrom database
+            sessions = Session.query.filter_by(day=request.args.get("session_type")).all()
+            # make sessions serializable
+            sessions = [session.serialize() for session in sessions]
+            return {"success": True, "data": sessions}
         else:
-            # get all booking types from database
-            booking_types = Workshop.query.all()
-            # make booking types serializable
-            booking_types = [booking_type.serialize() for booking_type in booking_types]
-            return {"success": True, "data": booking_types}
+            # get all sessions from database
+            sessions = Session.query.all()
+            # make sessions serializable
+            sessions = [session.serialize() for session in sessions]
+            return {"success": True, "data": sessions}
     
-    # delete a booking type
+    # delete a session
     @admins_only
     def delete(self):
         # parses request arguements into data
@@ -276,16 +274,16 @@ class Workshops(Resource):
         if not data.get("id"):
             return {"success": False, "error": "Missing id"}, 400
 
-        # get booking type from database
-        booking_type = Workshop.query.filter_by(id=data.get("id")).first()
+        # get session from database
+        session = Session.query.filter_by(id=data.get("id")).first()
 
-        # delete booking type from database
-        db.session.delete(booking_type)
+        # delete session from database
+        db.session.delete(session)
         db.session.commit()
 
-        return {"success": True, "data": repr(booking_type)}
+        return {"success": True, "data": repr(session)}
     
-    # update a booking type with put
+    # update a session with put
     @admins_only
     def put(self):
         # parses request arguements into data
@@ -301,36 +299,139 @@ class Workshops(Resource):
             return {"success": False, "error": "Missing name"}, 400
         if not data.get("description"):
             return {"success": False, "error": "Missing description"}, 400
-        if not data.get("day"):
-            return {"success": False, "error": "Missing day"}, 400
+        if not data.get("session_type"):
+            return {"success": False, "error": "Missing session type"}, 400
 
-        # get booking type from database
-        booking_type = Workshop.query.filter_by(id=data.get("id")).first()
-
-        # update booking type
-        booking_type.name = data.get("name")
-        booking_type.description = data.get("description")
-        booking_type.day = data.get("day")
+        # get session from database
+        session = Session.query.filter_by(id=data.get("id")).first()
+        
+        # update session
+        session.name = data.get("name")
+        session.description = data.get("description")
+        session.day = data.get("session_type")
 
         # commit changes to database
         db.session.commit()
 
-        return {"success": True, "data": repr(booking_type)}    
+        return {"success": True, "data": repr(session)}    
 
-# register types/delete to delete all types with admin rights
-@bookings_namespace.route("/types/delete")
+# register session/delete to delete all sessions with admin rights
+@bookings_namespace.route("/session/delete")
 class WorkshopsDelete(Resource):
     """
-    The Purpose of this API Endpoint is to allow an admin to delete all booking types.
+    The Purpose of this API Endpoint is to allow an admin to delete all sessions.
     """
 
     # user must be admin
     @admins_only
     def delete(self):
-        # delete all booking types from database
-        booking_types = Workshop.query.all()
-        for booking_type in booking_types:
-            db.session.delete(booking_type)
+        # delete all session from database
+        sessions = Session.query.all()
+        for session in sessions:
+            db.session.delete(session)
+        db.session.commit()
+        return {"success": True}
+
+# route to create new session type
+@bookings_namespace.route("/session_type")
+class sessionTypes(Resource):
+    """
+    The Purpose of this API Endpoint is to allow an admin to create a new session type.
+    """
+
+    # user must be admin
+    @admins_only
+    def post(self):
+        # parses request arguements into data
+        if request.content_type != "application/json":
+            data = request.form
+        else:
+            data = request.get_json()
+
+        # check for fields
+        if not data.get("name"):
+            return {"success": False, "error": "Missing name"}, 400
+
+        # create new session_type
+        session_type = SessionType(
+            name=data.get("name"),
+        )
+
+        # add session_type to database
+        db.session.add(session_type)
+        db.session.commit()
+
+        return {"success": True, "data": repr(session_type)}
+
+    # get all session_types
+    @authed_only
+    def get(self):
+        session_types = SessionType.query.all()
+        session_types = [session_type.serialize() for session_type in session_types]
+        return {"success": True, "data": session_types}
+
+    # delete a session_type
+    @admins_only
+    def delete(self):
+        # parses request arguements into data
+        if request.content_type != "application/json":
+            data = request.form
+        else:
+            data = request.get_json()
+
+        # check for fields
+        if not data.get("id"):
+            return {"success": False, "error": "Missing id"}, 400
+
+        # get session_type from database
+        session_type = SessionType.query.filter_by(id=data.get("id")).first()
+
+        # delete session_type from database
+        db.session.delete(session_type)
+        db.session.commit()
+
+        return {"success": True, "data": repr(session_type)}
+    
+    # update a session_type with put
+    @admins_only
+    def put(self):
+        # parses request arguements into data
+        if request.content_type != "application/json":
+            data = request.form
+        else:
+            data = request.get_json()
+
+        # check for fields
+        if not data.get("id"):
+            return {"success": False, "error": "Missing id"}, 400
+        if not data.get("name"):
+            return {"success": False, "error": "Missing name"}, 400
+
+        # get session_type from database
+        session_type = SessionType.query.filter_by(id=data.get("id")).first()
+        
+        # update session_type
+        session_type.name = data.get("name")
+
+        # commit changes to database
+        db.session.commit()
+
+        return {"success": True, "data": repr(session_type)}    
+
+# register session_type/delete to delete all session_types with admin rights
+@bookings_namespace.route("/session_type/delete")
+class WorkshopsDelete(Resource):
+    """
+    The Purpose of this API Endpoint is to allow an admin to delete all session_types.
+    """
+
+    # user must be admin
+    @admins_only
+    def delete(self):
+        # delete all session_type from database
+        session_types = session_type.query.all()
+        for session_type in session_types:
+            db.session_type.delete(session_type)
         db.session.commit()
         return {"success": True}
 
