@@ -287,6 +287,12 @@ class Sessions(Resource):
         session = Session.query.filter_by(id=data.get("id")).first()
 
         db.session.delete(session)
+
+        # remove all session schedules
+        existing_session_schedule = SessionSchedule.query.filter_by(session_id=session.id).all()
+        for ess in existing_session_schedule:
+            db.session.delete(ess)
+
         db.session.commit()
 
         return {"success": True, "data": repr(session)}
@@ -342,6 +348,11 @@ class WorkshopsDelete(Resource):
         sessions = Session.query.all()
         for session in sessions:
             db.session.delete(session)
+        
+        session_schedules = SessionSchedule.query.all()
+        for session_schedule in session_schedules:
+            db.session.delete(session_schedule)
+
         db.session.commit()
         return {"success": True}
 
@@ -399,6 +410,10 @@ class Schedules(Resource):
 
         item = Schedule.query.filter_by(id=data.get("id")).first()
 
+        session_schedule = SessionSchedule.query.filter_by(schedule_id=item.id).all()
+        for ss in session_schedule:
+            db.session.delete(ss)
+
         db.session.delete(item)
         db.session.commit()
 
@@ -444,6 +459,11 @@ class WorkshopsDelete(Resource):
         items = Schedule.query.all()
         for item in items:
             db.session.delete(item)
+
+        session_schedule = SessionSchedule.query.all()
+        for ss in session_schedule:
+            db.session.delete(ss)
+            
         db.session.commit()
         return {"success": True}
 

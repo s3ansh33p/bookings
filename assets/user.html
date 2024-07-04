@@ -303,9 +303,8 @@
     }
 
     async function deleteBooking(segment, session_id) {
-        // delete req to /api/v1/bookings
-        // let time = new Date(`Sep 9 2023 ${segment}`);
-        let time = new Date(window.scheduleItem.start_date.slice(0, 10) + "T" + segment + ":00.000Z");
+        const formatSegment = segment.length < 5 ? "0" + segment : segment;
+        let time = new Date(window.scheduleItem.start_date.slice(0, 10) + "T" + formatSegment + ":00.000Z");
         time = new Date(time.getTime() + (time.getTimezoneOffset() * 60000)).toISOString();
         const data = {
             "booking_time": time,
@@ -338,8 +337,8 @@
     async function createBooking(el) {
         let segment = el.getAttribute("data-time");
         let session_id = el.getAttribute("data-type");
-        // let time = new Date(`Sep 9 2023 ${segment}`);
-        let time = new Date(window.scheduleItem.start_date.slice(0, 10) + "T" + segment + ":00.000Z");
+        const formatSegment = segment.length < 5 ? "0" + segment : segment;
+        let time = new Date(window.scheduleItem.start_date.slice(0, 10) + "T" + formatSegment + ":00.000Z");
         time = new Date(time.getTime() + (time.getTimezoneOffset() * 60000)).toISOString();
         // temp data
         const data = {
