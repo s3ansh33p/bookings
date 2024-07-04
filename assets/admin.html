@@ -19,11 +19,11 @@
     <!-- <button onclick="deleteBookings()">Delete All Bookings</button> -->
     <!-- <button onclick="deleteBookingTypes()">Delete All Types</button> -->
 
-    <h2>Create Session Type</h2>
-    <form action="/api/v1/bookings/session_type" id="createSessionTypeForm" class="my-3 pb-5">
+    <h2 class="pt-5">Create Schedule Item</h2>
+    <form action="/api/v1/bookings/schedule" id="createScheduleItemForm" class="my-3 pb-5">
         <div class="form-group">
-            <label for="name">Session Type Name</label>
-            <input id="sessionTypeName" type="text" name="name" placeholder="Session Type Name" class="form-control">
+            <label for="name">Schedule Item Name</label>
+            <input type="text" name="name" placeholder="Schedule Item Name" class="form-control">
         </div>
         <div class="form-group">
             <label for="start_date">Start Timestamp</label>
@@ -33,13 +33,13 @@
             <label for="end_date">End Timestamp</label>
             <input type="datetime-local" name="end_date" placeholder="End Timestamp" class="form-control">
         </div>
-        <input type="submit" value="Create Session Type" class="btn btn-primary">
+        <input type="submit" value="Create Schedule Item" class="btn btn-primary">
     </form>
 
-    <h2>Current Session Types</h2>
-    <div id="sessionTypes"></div>
+    <h2>Current Schedule Items</h2>
+    <div id="scheduleItems"></div>
 
-    <h2>Create Session</h2>
+    <h2 class="pt-5">Create Session</h2>
     <form action="/api/v1/bookings/session" id="createSessionForm" class="my-3 pb-5">
         <div class="form-group">
             <label for="name">Booking Type Name</label>
@@ -49,10 +49,7 @@
             <label for="description">Booking Type Description:</label>
             <textarea name="description" placeholder="Booking Type Description" class="form-control"></textarea>
         </div>
-        <div class="form-group">
-            <label for="session_type">Session Type:</label>
-            <select class="form-control" name="session_type"></select>
-        </div>
+        <div class="form-group" id="sessionFormScheduleItems"></div>
         <input type="submit" value="Create   Type" class="btn btn-primary">
     </form>
 
@@ -65,12 +62,12 @@
 
     // on ready, get all booking types
     document.addEventListener("DOMContentLoaded", async function() {
-        await getSessionTypes();
+        await getScheduleItems();
         await getSessions();
     });
 
-    async function getSessionTypes() {
-        const response = await fetch('/api/v1/bookings/session_type', {
+    async function getScheduleItems() {
+        const response = await fetch('/api/v1/bookings/schedule', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -78,65 +75,59 @@
             }
         });
         const json = await response.json();
-        if (!json.success) return console.error("Failed to get session types");
+        if (!json.success) return console.error("Failed to get schedule items");
 
-        window.sessionTypes = json.data;
-        const select = document.getElementById("createSessionForm").querySelector("select[name=session_type]");
-        select.innerHTML = "";
-        for (const sessionType of json.data) {
-            const option = document.createElement("option");
-            option.value = sessionType.id;
-            option.innerText = sessionType.name;
-            select.appendChild(option);
-        }
+        window.scheduleItems = json.data;
+        const scheduleFormGroup = document.getElementById("sessionFormScheduleItems");
+        scheduleFormGroup.innerHTML = generateScheduleItemHtml();
         
-        const sessionTypes = document.getElementById("sessionTypes");
-        sessionTypes.innerHTML = "";
+        const scheduleItems = document.getElementById("scheduleItems");
+        scheduleItems.innerHTML = "";
 
-        for (const sessionType of json.data) {
-            const sessionTypeDiv = document.createElement("div");
-            sessionTypeDiv.setAttribute("data-id", sessionType.id);
-            sessionTypeDiv.innerHTML = `
-                <form action="/api/v1/bookings/session_type/${sessionType.id}" class="my-3 pb-4">
-                    <h3>Session Type #${sessionType.id}</h3>
-                    <input type="hidden" name="id" value="${sessionType.id}">
+        for (const item of json.data) {
+            const itemDiv = document.createElement("div");
+            itemDiv.setAttribute("data-id", item.id);
+            itemDiv.innerHTML = `
+                <form action="/api/v1/bookings/schedule/${item.id}" class="my-3 pb-4">
+                    <h3>Schedule Item #${item.id}</h3>
+                    <input type="hidden" name="id" value="${item.id}">
                     <div class="form-group">
                         <label for="name">Name</label>
-                        <input type="text" name="name" value="${sessionType.name}" placeholder="Name" class="form-control">
+                        <input type="text" name="name" value="${item.name}" placeholder="Name" class="form-control">
                     </div>
                     <div class="form-group">
                         <label for="start_date">Start Timestamp</label>
-                        <input type="datetime-local" name="start_date" value="${sessionType.start_date}" placeholder="Start Timestamp" class="form-control">
+                        <input type="datetime-local" name="start_date" value="${item.start_date}" placeholder="Start Timestamp" class="form-control">
                     </div>
                     <div class="form-group">
                         <label for="end_date">End Timestamp</label>
-                        <input type="datetime-local" name="end_date" value="${sessionType.end_date}" placeholder="End Timestamp" class="form-control">
+                        <input type="datetime-local" name="end_date" value="${item.end_date}" placeholder="End Timestamp" class="form-control">
                     </div>
                     <input type="submit" value="Update Session Type" class="btn btn-primary">
                     <input type="submit" value="Delete Session Type" class="btn btn-danger">
                 </form>
             `;
-            sessionTypes.appendChild(sessionTypeDiv);
-            sessionTypeDiv.addEventListener("submit",
+            scheduleItems.appendChild(itemDiv);
+            itemDiv.addEventListener("submit",
                 function(event) {
                     event.preventDefault();
-                    const id = sessionTypeDiv.querySelector("input[name=id]").value;
-                    const name = sessionTypeDiv.querySelector("input[name=name]").value;
-                    const start_date = sessionTypeDiv.querySelector("input[name=start_date]").value;
-                    const end_date = sessionTypeDiv.querySelector("input[name=end_date]").value;
+                    const id = itemDiv.querySelector("input[name=id]").value;
+                    const name = itemDiv.querySelector("input[name=name]").value;
+                    const start_date = itemDiv.querySelector("input[name=start_date]").value;
+                    const end_date = itemDiv.querySelector("input[name=end_date]").value;
                     let mode = "update";
                     if (event.submitter.value == "Delete Session Type") {
                         mode = "delete";
                     }
-                    individualSessionTypeCallback(id, name, start_date, end_date, mode);
+                    individualScheduleItemCallback(id, name, start_date, end_date, mode);
                 }
             );
         }
     }
 
-    async function individualSessionTypeCallback(id, name, start_date, end_date, mode) {
+    async function individualScheduleItemCallback(id, name, start_date, end_date, mode) {
         if (mode == "delete") {
-            const response = await fetch('/api/v1/bookings/session_type', {
+            const response = await fetch('/api/v1/bookings/schedule', {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
@@ -148,11 +139,11 @@
             });
             const json = await response.json();
             if (json.success) {
-                const element = document.getElementById("sessionTypes").querySelector(`div[data-id="${id}"]`);
+                const element = document.getElementById("scheduleItems").querySelector(`div[data-id="${id}"]`);
                 element.remove();
             }
         } else {
-            const response = await fetch('/api/v1/bookings/session_type', {
+            const response = await fetch('/api/v1/bookings/schedule', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -168,8 +159,18 @@
         }
     }
 
+    function generateScheduleItemHtml(schedule_ids = []) {
+        let scheduleItemsHtml = '';
+        for (const item of window.scheduleItems) {
+            scheduleItemsHtml += `<div class="form-check">
+                <input type="checkbox" class="form-check-input" name="schedule-${item.id}" ${schedule_ids.includes(item.id) ? 'checked' : ''}>
+                <label class="form-check-label" for="schedule-${item.id}">${item.name}</label>
+            </div>`;
+        }
+        return scheduleItemsHtml;
+    }
+
     async function getSessions() {
-        // get req to /api/v1/bookings/types
         const response = await fetch('/api/v1/bookings/session', {
             method: 'GET',
             headers: {
@@ -184,15 +185,6 @@
 
             const sessionDiv = document.createElement("div");
             sessionDiv.setAttribute("data-id", session.id);
-
-            let sessionTypesHtml = `<div class="form-group">`;
-            for (const sessionType of window.sessionTypes) {
-                sessionTypesHtml += `<div class="form-check">
-                    <input type="checkbox" class="form-check-input" name="session-type-${sessionType.id}">
-                    <label class="form-check-label" for="session-type-${sessionType.id}">${sessionType.name}</label>
-                </div>`;
-            }
-            sessionTypesHtml += `</div>`;
             
             sessionDiv.innerHTML = `
                 <form action="/api/v1/bookings/types/${session.id}" class="my-3 pb-4">
@@ -206,7 +198,9 @@
                         <label for="description">Description:</label>
                         <textarea name="description" placeholder="Description" class="form-control">${session.description}</textarea>
                     </div>
-                    ${sessionTypesHtml}
+                    <div class="form-group">
+                        ${generateScheduleItemHtml(session.schedule_ids)}
+                    </div>
                     <input type="submit" value="Update Booking Type" class="btn btn-primary">
                     <input type="submit" value="Delete Booking Type" class="btn btn-danger">
                 </form>
@@ -220,21 +214,26 @@
                     const id = sessionDiv.querySelector("input[name=id]").value;
                     const name = sessionDiv.querySelector("input[name=name]").value;
                     const description = sessionDiv.querySelector("textarea[name=description]").value;
-                    const session_type = sessionDiv.querySelector("select[name=session_type]").value;
+                    let schedule_ids = [];
+                    for (const item of window.scheduleItems) {
+                        if (sessionDiv.querySelector(`input[name=schedule-${item.id}]`).checked) {
+                            schedule_ids.push(item.id);
+                        }
+                    }
 
                     let mode = "update";
                     if (event.submitter.value == "Delete Booking Type") {
                         mode = "delete";
                     }
 
-                    individualBookingTypeCallback(id, name, description, session_type, mode);
+                    individualBookingTypeCallback(id, name, description, schedule_ids, mode);
                 }
             );
             
         }
     }
 
-    async function individualBookingTypeCallback(id, name, description, session_type, mode) {
+    async function individualBookingTypeCallback(id, name, description, schedule_ids, mode) {
         if (mode == "delete") {
             const response = await fetch('/api/v1/bookings/session', {
                 method: 'DELETE',
@@ -263,21 +262,21 @@
                     "id": id,
                     "name": name,
                     "description": description,
-                    "session_type": session_type
+                    "schedule_ids": schedule_ids
                 })
             });
         }
     }
 
-    document.getElementById("createSessionTypeForm").addEventListener("submit", async function(event) {
+    document.getElementById("createScheduleItemForm").addEventListener("submit", async function(event) {
         event.preventDefault();
-        const form = document.getElementById("createSessionTypeForm");
+        const form = document.getElementById("createScheduleItemForm");
         const data = {
             "name": form.querySelector("[name=name]").value,
             "start_date": form.querySelector("[name=start_date]").value,
             "end_date": form.querySelector("[name=end_date]").value,
         }
-        const response = await fetch('/api/v1/bookings/session_type', {
+        const response = await fetch('/api/v1/bookings/schedule', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -289,16 +288,23 @@
 
         if (json.success) {
             console.log("YAY!")
+            getScheduleItems();
         }
     });
 
     document.getElementById("createSessionForm").addEventListener("submit", async function(event) {
         event.preventDefault();
         const form = document.getElementById("createSessionForm");
+        let schedule_ids = [];
+        for (const item of window.scheduleItems) {
+            if (form.querySelector(`input[name=schedule-${item.id}]`).checked) {
+                schedule_ids.push(item.id);
+            }
+        }
         const data = {
             "name": form.querySelector("[name=name]").value,
             "description": form.querySelector("[name=description]").value,
-            "session_type": form.querySelector("[name=session_type]").value, 
+            "schedule_ids": schedule_ids
         }
         const response = await fetch('/api/v1/bookings/session', {
             method: 'POST',

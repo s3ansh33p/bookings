@@ -83,7 +83,7 @@
 <main class="container pb-3">
     <div class="d-flex align-items-center">
         <h1>Workshop Bookings - Saturday</h1>
-        <select class="form-control" id="session-types">
+        <select class="form-control" id="schedule-selection">
             <option disabled>Loading...</option>
         </select>
 
@@ -141,35 +141,36 @@
 
 <script>
     const csrf = init.csrfNonce;
-    const startTime = 10
-    const endTime = 18
+    // const startTime = 10
+    // const endTime = 18
     const segment = 0.5
 
     // on ready, get all bookings
     document.addEventListener("DOMContentLoaded", async function() {
-        const sessionTypes = await getSessionTypes();
-        createSessionTypeOptions(sessionTypes);
+        const scheduleItems = await getScheduleItems();
+        if (!scheduleItems.success) return console.error("Failed to get schedule items");
+        window.scheduleItems = scheduleItems.data;
+        createSessionTypeOptions();
     });
 
-    async function loadBookingInformation(sessionType) {
-        const bookingTypes = await getBookingTypes(sessionType);
-        const bookings = await getBookings(bookingTypes);
-        addWorkshopDescriptions(bookingTypes);
-        createBookingTable(bookingTypes, bookings);
+    async function loadBookingInformation(schedule_id) {
+        const sessions = await getSesssions(schedule_id);
+        const bookings = await getBookings(sessions);
+        addWorkshopDescriptions(sessions);
+        createBookingTable(schedule_id, sessions, bookings);
     }
 
-    function createSessionTypeOptions(sessionTypes) {
-        if (!sessionTypes.success) return;
-        const selectElement = document.getElementById("session-types");
+    function createSessionTypeOptions() {
+        const items = window.scheduleItems;
+        const selectElement = document.getElementById("schedule-selection");
         selectElement.innerHTML = "";
-        for (type of sessionTypes.data) {
-            selectElement.innerHTML += `<option value=${type.id}>${type.name}</option>`;   
+        for (item of items) {
+            selectElement.innerHTML += `<option value=${item.id}>${item.name}</option>`;   
         }
         selectElement.onchange = function() {
             loadBookingInformation(this.value);
         }
-        // load first session type
-        loadBookingInformation(sessionTypes.data[0].id);
+        loadBookingInformation(items[0].id);
     }
 
     async function addWorkshopDescriptions(bookingTypes) {
@@ -189,8 +190,15 @@
         }
     }
 
-    async function createBookingTable(bookingTypes, bookings) {
+    async function createBookingTable(schedule_id, bookingTypes, bookings) {
+        window.scheduleItem = window.scheduleItems.find(item => item.id == schedule_id);
         
+        const startDate = new Date(scheduleItem.start_date);
+        const startTime = startDate.getHours() + (startDate.getMinutes() / 60);
+        const endDate = new Date(scheduleItem.end_date);
+        const endTime = endDate.getHours() + (endDate.getMinutes() / 60);
+        console.log(bookingTypes, bookings);
+
         let workshopName = "TMP"
 
         // generate table html
@@ -218,7 +226,11 @@
             // if (!halfHour) endTimeString = `${Math.floor(i + segment)}:30`
 
             let bookingFields = "";
-            let curTime = new Date(`Sep 9 2023 ${timeString}`).getTime();
+            // let curTime = new Date(`Sep 9 2023 ${timeString}`).getTime();
+            let curTime = new Date(startDate);
+            curTime.setHours(Math.floor(i));
+            curTime.setMinutes(halfHour ? 30 : 0);
+            curTime = curTime.getTime();
             
             let curTimeBookings = [];
             // loop through bookings for this time and store in curTimeBookings
@@ -283,7 +295,9 @@
 
     async function deleteBooking(segment, session_id) {
         // delete req to /api/v1/bookings
-        let time = new Date(`Sep 9 2023 ${segment}`);
+        // let time = new Date(`Sep 9 2023 ${segment}`);
+        let time = new Date(window.scheduleItem.start_date.slice(0, 10) + "T" + segment + ":00.000Z");
+        time = new Date(time.getTime() + (time.getTimezoneOffset() * 60000)).toISOString();
         const data = {
             "booking_time": time,
             "session_id": session_id
@@ -315,7 +329,9 @@
     async function createBooking(el) {
         let segment = el.getAttribute("data-time");
         let session_id = el.getAttribute("data-type");
-        let time = new Date(`Sep 9 2023 ${segment}`);
+        // let time = new Date(`Sep 9 2023 ${segment}`);
+        let time = new Date(window.scheduleItem.start_date.slice(0, 10) + "T" + segment + ":00.000Z");
+        time = new Date(time.getTime() + (time.getTimezoneOffset() * 60000)).toISOString();
         // temp data
         const data = {
             "team_id": init.teamId,
@@ -372,10 +388,10 @@
         return {data: filtered};
     }
 
-    async function getBookingTypes(session_type) {
+    async function getSesssions(schedule_id) {
         // get req to /api/v1/bookings/types
         
-        const response = await fetch(`/api/v1/bookings/session?session_type=${session_type}`, {
+        const response = await fetch(`/api/v1/bookings/session?schedule_id=${schedule_id}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -386,8 +402,8 @@
         return json;
     }
 
-    async function getSessionTypes() {
-        const response = await fetch('/api/v1/bookings/session_type', {
+    async function getScheduleItems() {
+        const response = await fetch('/api/v1/bookings/schedule', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

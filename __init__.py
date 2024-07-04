@@ -15,7 +15,7 @@ from datetime import datetime
 bookings_namespace = Namespace("bookings", description="Endpoint for booking system")
 
 
-class SessionType(db.Model):
+class Schedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80))
     start_date = db.Column(db.DateTime)
@@ -27,7 +27,7 @@ class SessionType(db.Model):
         self.end_date = end_date
 
     def __repr__(self):
-        return "<SessionType {0} - {1} - {2} - {3}>".format(self.id, self.name, self.start_date, self.end_date)
+        return "<Schedule {0} - {1} - {2} - {3}>".format(self.id, self.name, self.start_date, self.end_date)
 
     def serialize(self):
         return {
@@ -41,26 +41,34 @@ class Session(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80))
     description = db.Column(db.Text)
-    session_type = db.Column(db.Integer)
 
-    def __init__(self, name, description, session_type):
+    def __init__(self, name, description):
         self.name = name
         self.description = description
-        self.session_type = session_type
 
     def __repr__(self):
-        return "<Workshop {0} - {1} - {2} - {3}>".format(self.id, self.name, self.description, self.session_type)
+        return "<Session {0} - {1} - {2}>".format(self.id, self.name, self.description)
 
     def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "session_type": self.session_type
         }
-    
+
+class SessionSchedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer)
+    schedule_id = db.Column(db.Integer)
+
+    def __init__(self, session_id, schedule_id):
+        self.session_id = session_id
+        self.schedule_id = schedule_id
+
+    def __repr__(self):
+        return "<SessionSchedule {0} - {1} - {2}>".format(self.id, self.session_id, self.schedule_id)
+
 class Booking(db.Model):
-    # stores team_id, booking_time
     id = db.Column(db.Integer, primary_key=True)
     team_id = db.Column(db.Integer)
     booking_time = db.Column(db.DateTime)
@@ -75,7 +83,6 @@ class Booking(db.Model):
         return "<Booking {0} for team {1} at {2}>".format(self.id, self.team_id, self.booking_time)
     
     def serialize(self):
-        # custom serialize datetime object to string
         booking_time = self.booking_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
         return {
             "id": self.id,
@@ -89,28 +96,22 @@ class BookingAdd(Resource):
     """
     The Purpose of this API Endpoint is to allow a user to view all bookings.
     """
-    # user has to be authentificated to call this endpoint    
     @authed_only
     def get(self):
-        # get all bookings from database
         bookings = Booking.query.all()
-        # make bookings serializable
         bookings = [booking.serialize() for booking in bookings]
         return {"success": True, "data": bookings}
     
     """
 	The Purpose of this API Endpoint is to allow a user to add a new booking to the database.
 	"""
-    # user has to be authentificated to call this endpoint    
     @authed_only
     def post(self):
-        # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
         else:
             data = request.get_json()
 
-        # check for fields
         if not data.get("team_id"):
             return {"success": False, "error": "Missing team_id"}, 400
         if not data.get("booking_time"):
@@ -119,9 +120,8 @@ class BookingAdd(Resource):
             return {"success": False, "error": "Missing session_id"}, 400
 
         parsed_datetime = datetime.strptime(data.get("booking_time"), '%Y-%m-%dT%H:%M:%S.%fZ')
-
         session_id = data.get("session_id")
-        # check if booking already exists
+        
         booking = Booking.query.filter_by(session_id=session_id, booking_time=parsed_datetime).first()
         if booking:
             return {"success": False, "error": "Booking already exists"}, 400
@@ -130,7 +130,7 @@ class BookingAdd(Resource):
         if not session:
             return {"success": False, "error": "session not found"}, 400
         
-        # if admin team (team_id of 25), skip validation
+        # if admin team (team_id of 25), skip validation [!] CHANGE ME
         if data.get("team_id") != 25:
 
             sessions = Session.query.filter_by(id=session_id).all()
@@ -151,205 +151,211 @@ class BookingAdd(Resource):
         else:
             print("Admin team, skipping validation")
 
-        # create new booking
         booking = Booking(
             team_id=data.get("team_id"),
             booking_time=parsed_datetime,
             session_id=data.get("session_id")
         )
 
-        # add booking to database
         db.session.add(booking)
         db.session.commit()
 
         return {"success": True, "data": repr(booking)}
     
-    # route to delete a booking
+    """
+	The Purpose of this API Endpoint is to allow a user to remove a booking.
+	"""
     @authed_only
+    # [!] Todo check team id matches that of the booking and if admin, bypass
     def delete(self):
-        # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
         else:
             data = request.get_json()
 
-        # check for fields
         if not data.get("session_id"):
             return {"success": False, "error": "Missing session_id"}, 400
         if not data.get("booking_time"):
             return {"success": False, "error": "Missing booking_time"}, 400
         
-        # get booking from database
         booking = Booking.query.filter_by(session_id=data.get("session_id"), booking_time=data.get("booking_time")).first()
 
-        # if not found, return error
         if not booking:
             return {"success": False, "error": "Booking not found"}, 400
 
-        # delete booking from database
         db.session.delete(booking)
         db.session.commit()
 
         return {"success": True}
     
-# route to delete all bookings for admins
 @bookings_namespace.route("/delete")
 class BookingDelete(Resource):
     """
     The Purpose of this API Endpoint is to allow an admin to delete all bookings.
     """
-    # user must be admin
     @admins_only
     def delete(self):
-        # delete all bookings from database
         bookings = Booking.query.all()
         for booking in bookings:
             db.session.delete(booking)
         db.session.commit()
         return {"success": True}
 
-# route to create new session
 @bookings_namespace.route("/session")
 class Sessions(Resource):
     """
     The Purpose of this API Endpoint is to allow an admin to create a new session.
-    This could be for a session for example
     """
-
-    # user must be admin
     @admins_only
     def post(self):
-        # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
         else:
             data = request.get_json()
 
-        # check for fields
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
         if not data.get("description"):
             return {"success": False, "error": "Missing description"}, 400
-        if not data.get("session_type"):
-            return {"success": False, "error": "Missing session type"}, 400
+        if not data.get("schedule_ids"):
+            return {"success": False, "error": "Missing schedule ids"}, 400
 
-        # create new session
         session = Session(
             name=data.get("name"),
             description=data.get("description"),
-            session_type=data.get("session_type")
         )
 
-        # add session to database
+        session_schedule = []
+        for schedule_id in data.get("schedule_ids"):
+            session_schedule.append(SessionSchedule(
+                session_id=session.id,
+                schedule_id=schedule_id
+            ))
+
         db.session.add(session)
+        db.session.add_all(session_schedule)
         db.session.commit()
 
         return {"success": True, "data": repr(session)}
 
-    # get all sessions
+    """
+    The Purpose of this API Endpoint is to allow a user to view sessions.
+    """
     @authed_only
     def get(self):
-        if request.args.get("session_type"):
-            # get all sessions nfrom database
-            sessions = Session.query.filter_by(session_type=request.args.get("session_type")).all()
-            # make sessions serializable
+        if request.args.get("schedule_id"):
+            # Get session ids from SessionSchedule, then get those matching sessions
+            session_schedules = SessionSchedule.query.filter_by(schedule_id=request.args.get("schedule_id")).all()
+            sessions = Session.query.filter(Session.id.in_([ss.session_id for ss in session_schedules])).all()
             sessions = [session.serialize() for session in sessions]
             return {"success": True, "data": sessions}
         else:
-            # get all sessions from database
-            sessions = Session.query.all()
-            # make sessions serializable
-            sessions = [session.serialize() for session in sessions]
+            # Otherwise, get all sessions
+            sessions = [session.serialize() for session in Session.query.all()]
+            for session in sessions:
+                session["schedule_ids"] = []
+            
+            session_schedules = SessionSchedule.query.order_by(SessionSchedule.session_id).all()
+            schedule_counter = 0
+            session_counter = 0
+            while schedule_counter < len(session_schedules):
+                found = False
+                while not found:
+                    if sessions[session_counter]["id"] != session_schedules[schedule_counter].session_id:
+                        session_counter += 1
+                    else:
+                        found = True
+                sessions[session_counter]["schedule_ids"].append(session_schedules[schedule_counter].schedule_id)
+                schedule_counter += 1
+
             return {"success": True, "data": sessions}
     
-    # delete a session
+    """
+    The Purpose of this API Endpoint is to allow an admin to delete a session.
+    """
     @admins_only
     def delete(self):
-        # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
         else:
             data = request.get_json()
 
-        # check for fields
         if not data.get("id"):
             return {"success": False, "error": "Missing id"}, 400
 
-        # get session from database
         session = Session.query.filter_by(id=data.get("id")).first()
 
-        # delete session from database
         db.session.delete(session)
         db.session.commit()
 
         return {"success": True, "data": repr(session)}
     
-    # update a session with put
+    """
+    The Purpose of this API Endpoint is to allow an admin to update a session.
+    """
     @admins_only
     def put(self):
-        # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
         else:
             data = request.get_json()
 
-        # check for fields
         if not data.get("id"):
             return {"success": False, "error": "Missing id"}, 400
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
         if not data.get("description"):
             return {"success": False, "error": "Missing description"}, 400
-        if not data.get("session_type"):
-            return {"success": False, "error": "Missing session type"}, 400
+        if not data.get("schedule_ids"):
+            return {"success": False, "error": "Missing schedule ids"}, 400 
 
-        # get session from database
         session = Session.query.filter_by(id=data.get("id")).first()
-        
-        # update session
+
+        existing_session_schedule = SessionSchedule.query.filter_by(session_id=session.id).all()
+        for ess in existing_session_schedule:
+            db.session.delete(ess)
+
+        session_schedule = []
+        for schedule_id in data.get("schedule_ids"):
+            session_schedule.append(SessionSchedule(
+                session_id=session.id,
+                schedule_id=schedule_id
+            ))
+
+        db.session.add_all(session_schedule)
+
         session.name = data.get("name")
         session.description = data.get("description")
-        session.session_type = data.get("session_type")
 
-        # commit changes to database
         db.session.commit()
 
         return {"success": True, "data": repr(session)}    
 
-# register session/delete to delete all sessions with admin rights
 @bookings_namespace.route("/session/delete")
 class WorkshopsDelete(Resource):
     """
     The Purpose of this API Endpoint is to allow an admin to delete all sessions.
     """
-
-    # user must be admin
     @admins_only
     def delete(self):
-        # delete all session from database
         sessions = Session.query.all()
         for session in sessions:
             db.session.delete(session)
         db.session.commit()
         return {"success": True}
 
-# route to create new session type
-@bookings_namespace.route("/session_type")
-class sessionTypes(Resource):
+@bookings_namespace.route("/schedule")
+class Schedules(Resource):
     """
-    The Purpose of this API Endpoint is to allow an admin to create a new session type.
+    The Purpose of this API Endpoint is to allow an admin to create a new schedule item.
     """
-
-    # user must be admin
     @admins_only
     def post(self):
-        # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
         else:
             data = request.get_json()
 
-        # check for fields
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
         if not data.get("start_date"):
@@ -357,58 +363,56 @@ class sessionTypes(Resource):
         if not data.get("end_date"):
             return {"success": False, "error": "Missing end date"}, 400
 
-        # create new session_type
-        session_type = SessionType(
+        schedule_item = Schedule(
             name=data.get("name"),
             start_date=data.get("start_date"),
             end_date=data.get("end_date")
         )
 
-        # add session_type to database
-        db.session.add(session_type)
+        db.session.add(schedule_item)
         db.session.commit()
 
-        return {"success": True, "data": repr(session_type)}
+        return {"success": True, "data": repr(schedule_item)}
 
-    # get all session_types
+    """
+    The Purpose of this API Endpoint is to get schedule items.
+    """
     @authed_only
     def get(self):
-        session_types = SessionType.query.all()
-        session_types = [session_type.serialize() for session_type in session_types]
-        return {"success": True, "data": session_types}
+        items = Schedule.query.all()
+        items = [item.serialize() for item in items]
+        return {"success": True, "data": items}
 
-    # delete a session_type
+    """
+    The Purpose of this API Endpoint is to allow an admin to delete a schedule item.
+    """
     @admins_only
     def delete(self):
-        # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
         else:
             data = request.get_json()
 
-        # check for fields
         if not data.get("id"):
             return {"success": False, "error": "Missing id"}, 400
 
-        # get session_type from database
-        session_type = SessionType.query.filter_by(id=data.get("id")).first()
+        item = Schedule.query.filter_by(id=data.get("id")).first()
 
-        # delete session_type from database
-        db.session.delete(session_type)
+        db.session.delete(item)
         db.session.commit()
 
-        return {"success": True, "data": repr(session_type)}
+        return {"success": True, "data": repr(item)}
     
-    # update a session_type with put
+    """
+    The Purpose of this API Endpoint is to allow an admin to update a schedule item.
+    """
     @admins_only
     def put(self):
-        # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
         else:
             data = request.get_json()
 
-        # check for fields
         if not data.get("id"):
             return {"success": False, "error": "Missing id"}, 400
         if not data.get("name"):
@@ -418,48 +422,39 @@ class sessionTypes(Resource):
         if not data.get("end_date"):
             return {"success": False, "error": "Missing ending date"}, 400
 
-        # get session_type from database
-        session_type = SessionType.query.filter_by(id=data.get("id")).first()
+        item = Schedule.query.filter_by(id=data.get("id")).first()
         
-        # update session_type
-        session_type.name = data.get("name")
-        session_type.start_date = data.get("start_date")
-        session_type.end_date = data.get("end_date")
+        item.name = data.get("name")
+        item.start_date = data.get("start_date")
+        item.end_date = data.get("end_date")
 
-        # commit changes to database
         db.session.commit()
 
-        return {"success": True, "data": repr(session_type)}    
+        return {"success": True, "data": repr(item)}    
 
-# register session_type/delete to delete all session_types with admin rights
-@bookings_namespace.route("/session_type/delete")
+@bookings_namespace.route("/schedule/delete")
 class WorkshopsDelete(Resource):
     """
-    The Purpose of this API Endpoint is to allow an admin to delete all session_types.
+    The Purpose of this API Endpoint is to allow an admin to delete all schedule items.
     """
 
-    # user must be admin
     @admins_only
     def delete(self):
-        # delete all session_type from database
-        session_types = session_type.query.all()
-        for session_type in session_types:
-            db.session_type.delete(session_type)
+        items = Schedule.query.all()
+        for item in items:
+            db.session.delete(item)
         db.session.commit()
         return {"success": True}
 
-# route to view all team names and team_ids, even if hidden
 @bookings_namespace.route("/teams")
 class BookingTeams(Resource):
     """
-    The Purpose of this API Endpoint is to allow a guest to view all teams.
+    The Purpose of this API Endpoint is to allow a user to view all teams.
     """
 
     @authed_only
     def get(self):
-        # get all teams from database
         teams = Teams.query.all()
-        # only return id and name
         teams = [{"id": team.id, "name": team.name} for team in teams]
         return {"success": True, "data": teams}
 
