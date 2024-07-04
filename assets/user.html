@@ -83,7 +83,10 @@
 <main class="container pb-3">
     <div class="d-flex align-items-center">
         <h1>Workshop Bookings - Saturday</h1>
-        <a href="/bookings/mentors" class="ml-auto float-right">(Navigate to Mentor Bookings)</a>
+        <select class="form-control" id="session-types">
+            <option disabled>Loading...</option>
+        </select>
+
     </div>
     <p style="font-style: italic;">Note: Bookings are made below the descriptions</p>
 
@@ -144,11 +147,30 @@
 
     // on ready, get all bookings
     document.addEventListener("DOMContentLoaded", async function() {
-        const bookingTypes = await getBookingTypes();
+        const sessionTypes = await getSessionTypes();
+        createSessionTypeOptions(sessionTypes);
+    });
+
+    async function loadBookingInformation(sessionType) {
+        const bookingTypes = await getBookingTypes(sessionType);
         const bookings = await getBookings(bookingTypes);
         addWorkshopDescriptions(bookingTypes);
         createBookingTable(bookingTypes, bookings);
-    });
+    }
+
+    function createSessionTypeOptions(sessionTypes) {
+        if (!sessionTypes.success) return;
+        const selectElement = document.getElementById("session-types");
+        selectElement.innerHTML = "";
+        for (type of sessionTypes.data) {
+            selectElement.innerHTML += `<option value=${type.id}>${type.name}</option>`;   
+        }
+        selectElement.onchange = function() {
+            loadBookingInformation(this.value);
+        }
+        // load first session type
+        loadBookingInformation(sessionTypes.data[0].id);
+    }
 
     async function addWorkshopDescriptions(bookingTypes) {
         // add descriptions to workshop descriptions div
@@ -217,7 +239,7 @@
                 // loop through curTimeBookings and add bookingField if type matches
                 for (let k = 0; k < curTimeBookings.length; k++) {
                     const booking = curTimeBookings[k];
-                    if (booking.type_id == bookingTypes.data[j].id) {
+                    if (booking.session_id == bookingTypes.data[j].id) {
                         if (init.teamId == booking.team_id) bookingField += `<button class="btn btn-success w-100" data-time="${timeString}" data-type="${bookingTypes.data[j].id}" onclick="deleteBookingModal(this)">Your Booking</button>`
                         else bookingField += `<button class="btn btn-warning w-100">Booked</button>`
                     }
@@ -259,12 +281,12 @@
         $('#delete-booking-modal').modal('show');
     }
 
-    async function deleteBooking(segment, type_id) {
+    async function deleteBooking(segment, session_id) {
         // delete req to /api/v1/bookings
         let time = new Date(`Sep 9 2023 ${segment}`);
         const data = {
             "booking_time": time,
-            "type_id": type_id
+            "session_id": session_id
         }
         const response = await fetch('/api/v1/bookings', {
             method: 'DELETE',
@@ -278,7 +300,7 @@
         // on success, update element
         if (json.success) {
             // query button by time and type to get element
-            let el = document.querySelector(`button[data-time="${segment}"][data-type="${type_id}"]`);
+            let el = document.querySelector(`button[data-time="${segment}"][data-type="${session_id}"]`);
             el.innerHTML = "Book";
             el.classList.remove("btn-success");
             el.classList.add("btn-primary");
@@ -292,14 +314,13 @@
 
     async function createBooking(el) {
         let segment = el.getAttribute("data-time");
-        let type_id = el.getAttribute("data-type");
+        let session_id = el.getAttribute("data-type");
         let time = new Date(`Sep 9 2023 ${segment}`);
         // temp data
         const data = {
             "team_id": init.teamId,
             "booking_time": time,
-            "notes": "test",
-            "type_id": type_id
+            "session_id": session_id
         }
         // post req to /api/v1/bookings
         const response = await fetch('/api/v1/bookings', {
@@ -327,7 +348,7 @@
 
     async function getBookings(bookingTypes) {
         // get req to /api/v1/bookings/view
-        const response = await fetch('/api/v1/bookings/view', {
+        const response = await fetch('/api/v1/bookings', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -336,10 +357,10 @@
         });
         const json = await response.json();
 
-        // instead filter so only bookings with type_id in bookingTypes are returned
+        // instead filter so only bookings with session_id in bookingTypes are returned
         let filtered = json.data.filter(booking => {
             // return booking if in bookingTypes
-            return bookingTypes.data.some(type => type.id == booking.type_id);
+            return bookingTypes.data.some(type => type.id == booking.session_id);
         });
         // sort by booking_time
         filtered.sort((a, b) => {
@@ -351,9 +372,22 @@
         return {data: filtered};
     }
 
-    async function getBookingTypes() {
+    async function getBookingTypes(session_type) {
         // get req to /api/v1/bookings/types
-        const response = await fetch('/api/v1/bookings/types?day=1', {
+        
+        const response = await fetch(`/api/v1/bookings/session?session_type=${session_type}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRF-Token': csrf
+            }
+        });
+        const json = await response.json();
+        return json;
+    }
+
+    async function getSessionTypes() {
+        const response = await fetch('/api/v1/bookings/session_type', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

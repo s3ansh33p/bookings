@@ -18,17 +18,23 @@ bookings_namespace = Namespace("bookings", description="Endpoint for booking sys
 class SessionType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80))
+    start_date = db.Column(db.DateTime)
+    end_date = db.Column(db.DateTime)
 
-    def __init__(self, name):
+    def __init__(self, name, start_date, end_date):
         self.name = name
+        self.start_date = start_date
+        self.end_date = end_date
 
     def __repr__(self):
-        return "<SessionType {0} - {1}>".format(self.id, self.name)
+        return "<SessionType {0} - {1} - {2} - {3}>".format(self.id, self.name, self.start_date, self.end_date)
 
     def serialize(self):
         return {
             "id": self.id,
-            "name": self.name
+            "name": self.name,
+            "start_date": self.start_date.isoformat(),
+            "end_date": self.end_date.isoformat()
         }
 
 class Session(db.Model):
@@ -54,7 +60,7 @@ class Session(db.Model):
         }
     
 class Booking(db.Model):
-    # stores team_id, booking_time, notes
+    # stores team_id, booking_time
     id = db.Column(db.Integer, primary_key=True)
     team_id = db.Column(db.Integer)
     booking_time = db.Column(db.DateTime)
@@ -109,32 +115,30 @@ class BookingAdd(Resource):
             return {"success": False, "error": "Missing team_id"}, 400
         if not data.get("booking_time"):
             return {"success": False, "error": "Missing booking_time"}, 400
-        if not data.get("notes"):
-            return {"success": False, "error": "Missing notes"}, 400
         if not data.get("session_id"):
             return {"success": False, "error": "Missing session_id"}, 400
 
         parsed_datetime = datetime.strptime(data.get("booking_time"), '%Y-%m-%dT%H:%M:%S.%fZ')
 
+        session_id = data.get("session_id")
         # check if booking already exists
-        booking = Booking.query.filter_by(workshop_id=data.get("session_id"), booking_time=parsed_datetime).first()
+        booking = Booking.query.filter_by(session_id=session_id, booking_time=parsed_datetime).first()
         if booking:
             return {"success": False, "error": "Booking already exists"}, 400
         
-        # get day from type_id
-        session = Session.query.filter_by(id=data.get("session_id")).first()
+        session = Session.query.filter_by(id=session_id).first()
         if not session:
             return {"success": False, "error": "session not found"}, 400
         
         # if admin team (team_id of 25), skip validation
         if data.get("team_id") != 25:
 
-            sessions = Session.query.filter_by(day=session.day).all()
+            sessions = Session.query.filter_by(id=session_id).all()
             
-            # a team can have a maximum of 4 bookings per day
+            # a team can have a maximum of 4 bookings per session
             bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
             # filter down the bookings to only the ones found in sessions
-            bookings = [b for b in bookings if b.workshop_id in [bt.id for bt in sessions]]
+            bookings = [b for b in bookings if b.session_id in [bt.id for bt in sessions]]
             
             count = 0
             for b in bookings:
@@ -143,7 +147,7 @@ class BookingAdd(Resource):
                     count += 1
                     print(count, repr(b), parsed_datetime.date())
             if count >= 4:
-                return {"success": False, "error": "Your team already has 2 hours worth of bookings for this day"}, 400
+                return {"success": False, "error": "Your team already has 2 hours worth of bookings for this type of booking"}, 400
         else:
             print("Admin team, skipping validation")
 
@@ -151,8 +155,7 @@ class BookingAdd(Resource):
         booking = Booking(
             team_id=data.get("team_id"),
             booking_time=parsed_datetime,
-            notes=data.get("notes"),
-            type_id=data.get("session_id")
+            session_id=data.get("session_id")
         )
 
         # add booking to database
@@ -164,7 +167,6 @@ class BookingAdd(Resource):
     # route to delete a booking
     @authed_only
     def delete(self):
-        # delete a booking from type_id and time
         # parses request arguements into data
         if request.content_type != "application/json":
             data = request.form
@@ -178,7 +180,7 @@ class BookingAdd(Resource):
             return {"success": False, "error": "Missing booking_time"}, 400
         
         # get booking from database
-        booking = Booking.query.filter_by(workshop_id=data.get("session_id"), booking_time=data.get("booking_time")).first()
+        booking = Booking.query.filter_by(session_id=data.get("session_id"), booking_time=data.get("booking_time")).first()
 
         # if not found, return error
         if not booking:
@@ -235,7 +237,7 @@ class Sessions(Resource):
         session = Session(
             name=data.get("name"),
             description=data.get("description"),
-            day=data.get("session_type")
+            session_type=data.get("session_type")
         )
 
         # add session to database
@@ -247,10 +249,9 @@ class Sessions(Resource):
     # get all sessions
     @authed_only
     def get(self):
-        # query by day
-        if request.args.get("day"):
+        if request.args.get("session_type"):
             # get all sessions nfrom database
-            sessions = Session.query.filter_by(day=request.args.get("session_type")).all()
+            sessions = Session.query.filter_by(session_type=request.args.get("session_type")).all()
             # make sessions serializable
             sessions = [session.serialize() for session in sessions]
             return {"success": True, "data": sessions}
@@ -308,7 +309,7 @@ class Sessions(Resource):
         # update session
         session.name = data.get("name")
         session.description = data.get("description")
-        session.day = data.get("session_type")
+        session.session_type = data.get("session_type")
 
         # commit changes to database
         db.session.commit()
@@ -351,10 +352,16 @@ class sessionTypes(Resource):
         # check for fields
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
+        if not data.get("start_date"):
+            return {"success": False, "error": "Missing start date"}, 400
+        if not data.get("end_date"):
+            return {"success": False, "error": "Missing end date"}, 400
 
         # create new session_type
         session_type = SessionType(
             name=data.get("name"),
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date")
         )
 
         # add session_type to database
@@ -406,12 +413,18 @@ class sessionTypes(Resource):
             return {"success": False, "error": "Missing id"}, 400
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
+        if not data.get("start_date"):
+            return {"success": False, "error": "Missing starting date"}, 400
+        if not data.get("end_date"):
+            return {"success": False, "error": "Missing ending date"}, 400
 
         # get session_type from database
         session_type = SessionType.query.filter_by(id=data.get("id")).first()
         
         # update session_type
         session_type.name = data.get("name")
+        session_type.start_date = data.get("start_date")
+        session_type.end_date = data.get("end_date")
 
         # commit changes to database
         db.session.commit()

@@ -12,57 +12,61 @@
 <!-- This is for admins AKA ComSSA people to manage all of the bookings.
      We have extra stuffs but I (sean) will add as needed, use the
      user page for now. -->
-<main class="container">
+<main class="container pb-5">
     <h1>Booking - Admin</h1>
     <a href="/admin/bookings/view">View Bookings</a> - 
     <a href="/bookings/view">View Mentor Bookings</a>
     <!-- <button onclick="deleteBookings()">Delete All Bookings</button> -->
     <!-- <button onclick="deleteBookingTypes()">Delete All Types</button> -->
 
-    <form action="/api/v1/bookings/session_type" id="createSessionTypeForm" class="my-3 pb-2">
+    <h2>Create Session Type</h2>
+    <form action="/api/v1/bookings/session_type" id="createSessionTypeForm" class="my-3 pb-5">
         <div class="form-group">
             <label for="name">Session Type Name</label>
             <input id="sessionTypeName" type="text" name="name" placeholder="Session Type Name" class="form-control">
         </div>
+        <div class="form-group">
+            <label for="start_date">Start Timestamp</label>
+            <input type="datetime-local" name="start_date" placeholder="Start Timestamp" class="form-control">
+        </div>
+        <div class="form-group">
+            <label for="end_date">End Timestamp</label>
+            <input type="datetime-local" name="end_date" placeholder="End Timestamp" class="form-control">
+        </div>
         <input type="submit" value="Create Session Type" class="btn btn-primary">
     </form>
 
-    <!-- div to list all session types -->
     <h2>Current Session Types</h2>
     <div id="sessionTypes"></div>
 
-    <!-- form for creating a new booking type -->
+    <h2>Create Session</h2>
     <form action="/api/v1/bookings/session" id="createSessionForm" class="my-3 pb-5">
         <div class="form-group">
             <label for="name">Booking Type Name</label>
-            <input id="bookingName" type="text" name="name" placeholder="Booking Type Name" class="form-control">
+            <input type="text" name="name" placeholder="Booking Type Name" class="form-control">
         </div>
         <div class="form-group">
             <label for="description">Booking Type Description:</label>
-            <textarea id="bookingDesc" name="description" placeholder="Booking Type Description" class="form-control"></textarea>
+            <textarea name="description" placeholder="Booking Type Description" class="form-control"></textarea>
         </div>
-        <!-- checkbox for day 1 or 2 -->
-        <div class="form-check form-group">
-            <input class="form-check-input" type="checkbox" id="bookingDay" name="day">
-            <label class="form-check-label" for="day">
-                Check for workshop / Uncheck for mentor
-            </label>
+        <div class="form-group">
+            <label for="session_type">Session Type:</label>
+            <select class="form-control" name="session_type"></select>
         </div>
-        <input type="submit" value="Create Booking Type" class="btn btn-primary">
+        <input type="submit" value="Create   Type" class="btn btn-primary">
     </form>
 
-    <!-- div to list all booking types -->
-    <h2>Current Booking Types</h2>
-    <div id="bookingTypes"></div>
+    <h2>Current Sessions</h2>
+    <div id="sessions"></div>
 </main>
 
 <script>
     const csrf = init.csrfNonce;
 
     // on ready, get all booking types
-    document.addEventListener("DOMContentLoaded", function() {
-        getSessionTypes();
-        getBookingTypes();
+    document.addEventListener("DOMContentLoaded", async function() {
+        await getSessionTypes();
+        await getSessions();
     });
 
     async function getSessionTypes() {
@@ -74,20 +78,39 @@
             }
         });
         const json = await response.json();
-        console.log(json);
+        if (!json.success) return console.error("Failed to get session types");
+
+        window.sessionTypes = json.data;
+        const select = document.getElementById("createSessionForm").querySelector("select[name=session_type]");
+        select.innerHTML = "";
+        for (const sessionType of json.data) {
+            const option = document.createElement("option");
+            option.value = sessionType.id;
+            option.innerText = sessionType.name;
+            select.appendChild(option);
+        }
         
         const sessionTypes = document.getElementById("sessionTypes");
         sessionTypes.innerHTML = "";
 
         for (const sessionType of json.data) {
             const sessionTypeDiv = document.createElement("div");
+            sessionTypeDiv.setAttribute("data-id", sessionType.id);
             sessionTypeDiv.innerHTML = `
-                <form action="/api/v1/bookings/session_type/${sessionType.id}" data-id="${sessionType.id}" class="my-3 pb-2">
+                <form action="/api/v1/bookings/session_type/${sessionType.id}" class="my-3 pb-4">
                     <h3>Session Type #${sessionType.id}</h3>
                     <input type="hidden" name="id" value="${sessionType.id}">
                     <div class="form-group">
                         <label for="name">Name</label>
-                        <input id="sessionTypeName" type="text" name="name" value="${sessionType.name}" placeholder="Name" class="form-control">
+                        <input type="text" name="name" value="${sessionType.name}" placeholder="Name" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="start_date">Start Timestamp</label>
+                        <input type="datetime-local" name="start_date" value="${sessionType.start_date}" placeholder="Start Timestamp" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date">End Timestamp</label>
+                        <input type="datetime-local" name="end_date" value="${sessionType.end_date}" placeholder="End Timestamp" class="form-control">
                     </div>
                     <input type="submit" value="Update Session Type" class="btn btn-primary">
                     <input type="submit" value="Delete Session Type" class="btn btn-danger">
@@ -98,18 +121,20 @@
                 function(event) {
                     event.preventDefault();
                     const id = sessionTypeDiv.querySelector("input[name=id]").value;
-                    const name = sessionTypeDiv.querySelector("#sessionTypeName").value;
+                    const name = sessionTypeDiv.querySelector("input[name=name]").value;
+                    const start_date = sessionTypeDiv.querySelector("input[name=start_date]").value;
+                    const end_date = sessionTypeDiv.querySelector("input[name=end_date]").value;
                     let mode = "update";
                     if (event.submitter.value == "Delete Session Type") {
                         mode = "delete";
                     }
-                    individualSessionTypeCallback(id, name, mode);
+                    individualSessionTypeCallback(id, name, start_date, end_date, mode);
                 }
             );
         }
     }
 
-    async function individualSessionTypeCallback(id, name, mode) {
+    async function individualSessionTypeCallback(id, name, start_date, end_date, mode) {
         if (mode == "delete") {
             const response = await fetch('/api/v1/bookings/session_type', {
                 method: 'DELETE',
@@ -123,7 +148,7 @@
             });
             const json = await response.json();
             if (json.success) {
-                const element = document.getElementById("sessionTypes").querySelector(`form[data-id="${id}"]`).parentElement;
+                const element = document.getElementById("sessionTypes").querySelector(`div[data-id="${id}"]`);
                 element.remove();
             }
         } else {
@@ -135,15 +160,17 @@
                 },
                 body: JSON.stringify({
                     "id": id,
-                    "name": name
+                    "name": name,
+                    "start_date": start_date,
+                    "end_date": end_date
                 })
             });
         }
     }
 
-    async function getBookingTypes() {
+    async function getSessions() {
         // get req to /api/v1/bookings/types
-        const response = await fetch('/api/v1/bookings/types', {
+        const response = await fetch('/api/v1/bookings/session', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -151,81 +178,82 @@
             }
         });
         const json = await response.json();
-        // display booking types
-        const bookingTypes = document.getElementById("bookingTypes");
+        const bookingTypes = document.getElementById("sessions");
         bookingTypes.innerHTML = "";
-        // generate mini form for each, with editable name and description (shows id at left).
-        // also has a delete button
-        for (const bookingType of json.data) {
-            const bookingTypeDiv = document.createElement("div");
-            bookingTypeDiv.innerHTML = `
-                <form action="/api/v1/bookings/types/${bookingType.id}" class="my-3 pb-5">
-                    <h3>Booking #${bookingType.id}</h3>
-                    <input type="hidden" name="id" value="${bookingType.id}">
+        for (const session of json.data) {
+
+            const sessionDiv = document.createElement("div");
+            sessionDiv.setAttribute("data-id", session.id);
+
+            let sessionTypesHtml = `<div class="form-group">`;
+            for (const sessionType of window.sessionTypes) {
+                sessionTypesHtml += `<div class="form-check">
+                    <input type="checkbox" class="form-check-input" name="session-type-${sessionType.id}">
+                    <label class="form-check-label" for="session-type-${sessionType.id}">${sessionType.name}</label>
+                </div>`;
+            }
+            sessionTypesHtml += `</div>`;
+            
+            sessionDiv.innerHTML = `
+                <form action="/api/v1/bookings/types/${session.id}" class="my-3 pb-4">
+                    <h3>Session #${session.id}</h3>
+                    <input type="hidden" name="id" value="${session.id}">
                     <div class="form-group">
                         <label for="name">Name</label>
-                        <input id="bookingName" type="text" name="name" value="${bookingType.name}" placeholder="Name" class="form-control">
+                        <input type="text" name="name" value="${session.name}" placeholder="Name" class="form-control">
                     </div>
                     <div class="form-group">
                         <label for="description">Description:</label>
-                        <textarea id="bookingDesc" name="description" placeholder="Description" class="form-control">${bookingType.description}</textarea>
+                        <textarea name="description" placeholder="Description" class="form-control">${session.description}</textarea>
                     </div>
-                    <!-- checkbox for day 1 or 2 -->
-                    <div class="form-check form-group">
-                        <input class="form-check-input" type="checkbox" ${bookingType.day == 1 ? "checked" : ""} id="bookingDay" name="day">
-                        <label class="form-check-label" for="day">
-                            Check for workshop / Uncheck for mentor
-                        </label>
-                    </div>
+                    ${sessionTypesHtml}
                     <input type="submit" value="Update Booking Type" class="btn btn-primary">
                     <input type="submit" value="Delete Booking Type" class="btn btn-danger">
+                </form>
             `;
-            bookingTypes.appendChild(bookingTypeDiv);
-            // add listener to form
-            bookingTypeDiv.addEventListener("submit",
+
+            bookingTypes.appendChild(sessionDiv);
+            sessionDiv.addEventListener("submit",
                 function(event) {
                     event.preventDefault();
-                    // get name and description from form
-                    const id = bookingTypeDiv.querySelector("input[name=id]").value;
-                    const name = bookingTypeDiv.querySelector("#bookingName").value;
-                    const description = bookingTypeDiv.querySelector("#bookingDesc").value;
-                    const day = bookingTypeDiv.querySelector("#bookingDay").checked ? 1 : 2;
+                    
+                    const id = sessionDiv.querySelector("input[name=id]").value;
+                    const name = sessionDiv.querySelector("input[name=name]").value;
+                    const description = sessionDiv.querySelector("textarea[name=description]").value;
+                    const session_type = sessionDiv.querySelector("select[name=session_type]").value;
+
                     let mode = "update";
-                    // check if delete was clicked
                     if (event.submitter.value == "Delete Booking Type") {
                         mode = "delete";
                     }
-                    individualBookingTypeCallback(id, name, description, day, mode);
+
+                    individualBookingTypeCallback(id, name, description, session_type, mode);
                 }
             );
             
         }
     }
 
-    async function individualBookingTypeCallback(id, name, description, day, mode) {
-        // if mode is delete, make delete req
+    async function individualBookingTypeCallback(id, name, description, session_type, mode) {
         if (mode == "delete") {
-            const response = await fetch('/api/v1/bookings/types', {
+            const response = await fetch('/api/v1/bookings/session', {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                     'CSRF-Token': csrf
                 },
                 body: JSON.stringify({
-                    "id": id,
-                    "name": name,
-                    "description": description,
-                    "day": day
+                    "id": id
                 })
             });
             const json = await response.json();
-            // on success, remove the div
+
             if (json.success) {
-                document.getElementById("bookingTypes").removeChild(document.getElementById("bookingTypes").querySelector(`form[action="/api/v1/bookings/types/${id}"]`).parentElement);
+                const element = document.getElementById("sessions").querySelector(`div[data-id="${id}"]`);
+                element.remove();
             }
         } else {
-            // else make update req
-            const response = await fetch('/api/v1/bookings/types', {
+            const response = await fetch('/api/v1/bookings/session', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -235,7 +263,7 @@
                     "id": id,
                     "name": name,
                     "description": description,
-                    "day": day
+                    "session_type": session_type
                 })
             });
         }
@@ -243,8 +271,11 @@
 
     document.getElementById("createSessionTypeForm").addEventListener("submit", async function(event) {
         event.preventDefault();
+        const form = document.getElementById("createSessionTypeForm");
         const data = {
-            "name": document.getElementById("sessionTypeName").value
+            "name": form.querySelector("[name=name]").value,
+            "start_date": form.querySelector("[name=start_date]").value,
+            "end_date": form.querySelector("[name=end_date]").value,
         }
         const response = await fetch('/api/v1/bookings/session_type', {
             method: 'POST',
@@ -255,6 +286,7 @@
             body: JSON.stringify(data)
         });
         const json = await response.json();
+
         if (json.success) {
             console.log("YAY!")
         }
@@ -262,12 +294,12 @@
 
     document.getElementById("createSessionForm").addEventListener("submit", async function(event) {
         event.preventDefault();
+        const form = document.getElementById("createSessionForm");
         const data = {
-            "name": document.getElementById("bookingName").value,
-            "description": document.getElementById("bookingDesc").value,
-            "day": document.getElementById("bookingDay").checked ? 1 : 2
+            "name": form.querySelector("[name=name]").value,
+            "description": form.querySelector("[name=description]").value,
+            "session_type": form.querySelector("[name=session_type]").value, 
         }
-        // post req to /api/v1/bookings
         const response = await fetch('/api/v1/bookings/session', {
             method: 'POST',
             headers: {
@@ -277,12 +309,11 @@
             body: JSON.stringify(data)
         });
         const json = await response.json();
-        // on success, get all booking types again
-        if (json.success) getBookingTypes();
+
+        if (json.success) getSessions();
     });
     
     async function getBookings() {
-        // get req to /api/v1/bookings/view
         const response = await fetch('/api/v1/bookings/view', {
             method: 'GET',
             headers: {
@@ -314,6 +345,8 @@
                 'CSRF-Token': csrf
             }
         });
+        const json = await response.json();
+        console.log(json);
     }
 </script>
 
