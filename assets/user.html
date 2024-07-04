@@ -197,7 +197,6 @@
         const startTime = startDate.getHours() + (startDate.getMinutes() / 60);
         const endDate = new Date(scheduleItem.end_date);
         const endTime = endDate.getHours() + (endDate.getMinutes() / 60);
-        console.log(bookingTypes, bookings);
 
         let workshopName = "TMP"
 
@@ -216,6 +215,16 @@
         // generate rows
         let rows = []
         let bookingOffset = 0;
+        // move booking offset to first booking after start time
+        while (bookingOffset < bookings.data.length) {
+            const booking = bookings.data[bookingOffset];
+            const bookingTime = new Date(booking.booking_time).getTime();
+            if (bookingTime < startDate.getTime()) {
+                bookingOffset++;
+            } else {
+                break;
+            }
+        }
         for (let i = startTime; i < endTime; i += segment) {
             // calculate time string
             let timeString = `${i}:00`

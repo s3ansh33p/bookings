@@ -224,7 +224,9 @@ class Sessions(Resource):
             name=data.get("name"),
             description=data.get("description"),
         )
-
+        db.session.add(session)
+        db.session.commit()
+        
         session_schedule = []
         for schedule_id in data.get("schedule_ids"):
             session_schedule.append(SessionSchedule(
@@ -232,7 +234,6 @@ class Sessions(Resource):
                 schedule_id=schedule_id
             ))
 
-        db.session.add(session)
         db.session.add_all(session_schedule)
         db.session.commit()
 
