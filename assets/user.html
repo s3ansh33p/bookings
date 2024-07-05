@@ -141,9 +141,6 @@
 
 <script>
     const csrf = init.csrfNonce;
-    // const startTime = 10
-    // const endTime = 18
-    const segment = 0.5
 
     // on ready, get all bookings
     document.addEventListener("DOMContentLoaded", async function() {
@@ -194,9 +191,11 @@
         window.scheduleItem = window.scheduleItems.find(item => item.id == schedule_id);
         
         const startDate = new Date(scheduleItem.start_date);
-        const startTime = startDate.getHours() + (startDate.getMinutes() / 60);
+        const startTime = startDate.getHours() * 60 + startDate.getMinutes(); 
         const endDate = new Date(scheduleItem.end_date);
-        const endTime = endDate.getHours() + (endDate.getMinutes() / 60);
+        const endTime = endDate.getHours() * 60 + endDate.getMinutes();
+
+        const segment = scheduleItem.segment;
 
         let workshopName = "TMP"
 
@@ -226,19 +225,15 @@
             }
         }
         for (let i = startTime; i < endTime; i += segment) {
-            // calculate time string
-            let timeString = `${i}:00`
-            const halfHour = i % 1 != 0
-            if (halfHour) timeString = `${Math.floor(i)}:30`
-            // calculate end time
-            // let endTimeString = `${i + segment}:00`
-            // if (!halfHour) endTimeString = `${Math.floor(i + segment)}:30`
+            const curHour = Math.floor(i / 60);
+            const curMin = i % 60;
+
+            const timeString = `${curHour}:${curMin < 10 ? "0" + curMin : curMin}`;
 
             let bookingFields = "";
-            // let curTime = new Date(`Sep 9 2023 ${timeString}`).getTime();
             let curTime = new Date(startDate);
-            curTime.setHours(Math.floor(i));
-            curTime.setMinutes(halfHour ? 30 : 0);
+            curTime.setHours(curHour);
+            curTime.setMinutes(curMin);
             curTime = curTime.getTime();
             
             let curTimeBookings = [];

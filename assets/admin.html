@@ -9,9 +9,6 @@
     }
 </style>
 
-<!-- This is for admins AKA ComSSA people to manage all of the bookings.
-     We have extra stuffs but I (sean) will add as needed, use the
-     user page for now. -->
 <main class="container pb-5">
     <h1>Booking - Admin</h1>
     <div class="form-group">
@@ -38,6 +35,21 @@
             <label for="end_date">End Timestamp</label>
             <input type="datetime-local" name="end_date" placeholder="End Timestamp" class="form-control">
         </div>
+        <div class="form-group">
+            <label for="name">Timeslot Size</label>
+            <select name="segment" class="form-control">
+                <option value="5">5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="20">20 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="60">60 minutes</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="header">Header</label>
+            <textarea name="header" placeholder="Header HTML" class="form-control"></textarea>
+        </div>
         <input type="submit" value="Create Schedule Item" class="btn btn-primary">
     </form>
 
@@ -47,12 +59,12 @@
     <h2 class="pt-5">Create Session</h2>
     <form action="/api/v1/bookings/session" id="createSessionForm" class="my-3 pb-5">
         <div class="form-group">
-            <label for="name">Booking Type Name</label>
-            <input type="text" name="name" placeholder="Booking Type Name" class="form-control">
+            <label for="name">Session Name</label>
+            <input type="text" name="name" placeholder="Session Name" class="form-control">
         </div>
         <div class="form-group">
-            <label for="description">Booking Type Description:</label>
-            <textarea name="description" placeholder="Booking Type Description" class="form-control"></textarea>
+            <label for="description">Session Description:</label>
+            <textarea name="description" placeholder="Session Description" class="form-control"></textarea>
         </div>
         <div class="form-group" id="sessionFormScheduleItems"></div>
         <input type="submit" value="Create   Type" class="btn btn-primary">
@@ -108,11 +120,28 @@
                         <label for="end_date">End Timestamp</label>
                         <input type="datetime-local" name="end_date" value="${item.end_date}" placeholder="End Timestamp" class="form-control">
                     </div>
+                    <div class="form-group">
+                        <label for="name">Timeslot Size</label>
+                        <select name="segment" class="form-control">
+                            <option value="5">5 minutes</option>
+                            <option value="10">10 minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="20">20 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="header">Header</label>
+                        <textarea name="header" placeholder="Header HTML" class="form-control">${item.header}</textarea>
+                    </div>
                     <input type="submit" value="Update Schedule Item" class="btn btn-primary">
                     <input type="submit" value="Delete Schedule Item" class="btn btn-danger">
                 </form>
             `;
             scheduleItems.appendChild(itemDiv);
+            const selectElement = itemDiv.querySelector(`select[name=segment] option[value="${item.segment}"]`);
+            if (selectElement) selectElement.selected = true;
             itemDiv.addEventListener("submit",
                 function(event) {
                     event.preventDefault();
@@ -120,17 +149,19 @@
                     const name = itemDiv.querySelector("input[name=name]").value;
                     const start_date = itemDiv.querySelector("input[name=start_date]").value;
                     const end_date = itemDiv.querySelector("input[name=end_date]").value;
+                    const segment = itemDiv.querySelector("select[name=segment]").value;
+                    const header = itemDiv.querySelector("textarea[name=header]").value;
                     let mode = "update";
-                    if (event.submitter.value == "Delete Session Type") {
+                    if (event.submitter.value == "Delete Session") {
                         mode = "delete";
                     }
-                    individualScheduleItemCallback(id, name, start_date, end_date, mode);
+                    individualScheduleItemCallback(id, name, start_date, end_date, segment, header, mode);
                 }
             );
         }
     }
 
-    async function individualScheduleItemCallback(id, name, start_date, end_date, mode) {
+    async function individualScheduleItemCallback(id, name, start_date, end_date, segment, header, mode) {
         if (mode == "delete") {
             const confirmed = confirm("Are you sure you want to delete this schedule item? This action cannot be undone.")
             if (!confirmed) return;
@@ -160,7 +191,9 @@
                     "id": id,
                     "name": name,
                     "start_date": start_date,
-                    "end_date": end_date
+                    "end_date": end_date,
+                    "segment": segment,
+                    "header": header
                 })
             });
         }
@@ -229,7 +262,7 @@
                     }
 
                     let mode = "update";
-                    if (event.submitter.value == "Delete Booking Type") {
+                    if (event.submitter.value == "Delete Schedule Item") {
                         mode = "delete";
                     }
 
@@ -284,6 +317,8 @@
             "name": form.querySelector("[name=name]").value,
             "start_date": form.querySelector("[name=start_date]").value,
             "end_date": form.querySelector("[name=end_date]").value,
+            "segment": form.querySelector("[name=segment]").value,
+            "header": form.querySelector("[name=header]").value
         }
         const response = await fetch('/api/v1/bookings/schedule', {
             method: 'POST',

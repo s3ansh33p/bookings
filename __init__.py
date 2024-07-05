@@ -20,21 +20,27 @@ class Schedule(db.Model):
     name = db.Column(db.String(80))
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
+    segment = db.Column(db.Integer)
+    header = db.Column(db.Text)
 
-    def __init__(self, name, start_date, end_date):
+    def __init__(self, name, start_date, end_date, segment, header):
         self.name = name
         self.start_date = start_date
         self.end_date = end_date
+        self.segment = segment
+        self.header = header
 
     def __repr__(self):
-        return "<Schedule {0} - {1} - {2} - {3}>".format(self.id, self.name, self.start_date, self.end_date)
+        return "<Schedule {0} - {1} - {2} - {3} - {4}>".format(self.id, self.name, self.start_date, self.end_date, self.segment)
 
     def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
             "start_date": self.start_date.isoformat(),
-            "end_date": self.end_date.isoformat()
+            "end_date": self.end_date.isoformat(),
+            "segment": self.segment,
+            "header": self.header
         }
 
 class Session(db.Model):
@@ -215,14 +221,12 @@ class Sessions(Resource):
 
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
-        if not data.get("description"):
-            return {"success": False, "error": "Missing description"}, 400
         if not data.get("schedule_ids"):
             return {"success": False, "error": "Missing schedule ids"}, 400
 
         session = Session(
             name=data.get("name"),
-            description=data.get("description"),
+            description=data.get("description") if data.get("description") else ""
         )
         db.session.add(session)
         db.session.commit()
@@ -311,8 +315,6 @@ class Sessions(Resource):
             return {"success": False, "error": "Missing id"}, 400
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
-        if not data.get("description"):
-            return {"success": False, "error": "Missing description"}, 400
         if not data.get("schedule_ids"):
             return {"success": False, "error": "Missing schedule ids"}, 400 
 
@@ -332,7 +334,7 @@ class Sessions(Resource):
         db.session.add_all(session_schedule)
 
         session.name = data.get("name")
-        session.description = data.get("description")
+        session.description = data.get("description") if data.get("description") else ""
 
         db.session.commit()
 
@@ -374,11 +376,15 @@ class Schedules(Resource):
             return {"success": False, "error": "Missing start date"}, 400
         if not data.get("end_date"):
             return {"success": False, "error": "Missing end date"}, 400
+        if not data.get("segment"):
+            return {"success": False, "error": "Missing segment"}, 400
 
         schedule_item = Schedule(
             name=data.get("name"),
             start_date=data.get("start_date"),
-            end_date=data.get("end_date")
+            end_date=data.get("end_date"),
+            segment=data.get("segment"),
+            header=data.get("header") if data.get("header") else ""
         )
 
         db.session.add(schedule_item)
@@ -437,13 +443,17 @@ class Schedules(Resource):
             return {"success": False, "error": "Missing starting date"}, 400
         if not data.get("end_date"):
             return {"success": False, "error": "Missing ending date"}, 400
+        if not data.get("segment"):
+            return {"success": False, "error": "Missing segment"}, 400
 
         item = Schedule.query.filter_by(id=data.get("id")).first()
-        
+
         item.name = data.get("name")
         item.start_date = data.get("start_date")
         item.end_date = data.get("end_date")
-
+        item.segment = data.get("segment")
+        item.header = data.get("header") if data.get("header") else ""
+        
         db.session.commit()
 
         return {"success": True, "data": repr(item)}    
