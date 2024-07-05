@@ -4,6 +4,7 @@ from flask import Blueprint, request, render_template # only needed for Blueprin
 from flask_restx import Namespace, Resource
 from CTFd.models import db, Teams
 from CTFd.utils.decorators import admins_only, authed_only
+from CTFd.utils.user import get_current_user_attrs
 from CTFd.plugins.migrations import upgrade
 from CTFd.api import CTFd_API_v1
 
@@ -14,6 +15,7 @@ from datetime import datetime
 
 bookings_namespace = Namespace("bookings", description="Endpoint for booking system")
 
+MAX_BOOKING_PER_SESSION = 2
 
 class Schedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -119,11 +121,11 @@ class BookingAdd(Resource):
             data = request.get_json()
 
         if not data.get("team_id"):
-            return {"success": False, "error": "Missing team_id"}, 400
+            return {"success": False, "error": "Missing team id"}, 400
         if not data.get("booking_time"):
-            return {"success": False, "error": "Missing booking_time"}, 400
+            return {"success": False, "error": "Missing booking time"}, 400
         if not data.get("session_id"):
-            return {"success": False, "error": "Missing session_id"}, 400
+            return {"success": False, "error": "Missing session id"}, 400
 
         parsed_datetime = datetime.strptime(data.get("booking_time"), '%Y-%m-%dT%H:%M:%S.%fZ')
         session_id = data.get("session_id")
@@ -134,26 +136,33 @@ class BookingAdd(Resource):
         
         session = Session.query.filter_by(id=session_id).first()
         if not session:
-            return {"success": False, "error": "session not found"}, 400
+            return {"success": False, "error": "Session not found"}, 400
         
-        # if admin team (team_id of 25), skip validation [!] CHANGE ME
-        if data.get("team_id") != 25:
+        user = get_current_user_attrs()
+        if user.type != "admin" and user.team_id == data.get("team_id"):
 
             sessions = Session.query.filter_by(id=session_id).all()
             
-            # a team can have a maximum of 4 bookings per session
+            # a team can have a maximum of X bookings per session
             bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
             # filter down the bookings to only the ones found in sessions
-            bookings = [b for b in bookings if b.session_id in [bt.id for bt in sessions]]
+            bookings_for_session = [b for b in bookings if b.session_id in [bt.id for bt in sessions]]
             
             count = 0
-            for b in bookings:
+            for b in bookings_for_session:
                 # check if booking is on the same day
                 if b.booking_time.date() == parsed_datetime.date():
                     count += 1
                     print(count, repr(b), parsed_datetime.date())
-            if count >= 4:
-                return {"success": False, "error": "Your team already has 2 hours worth of bookings for this type of booking"}, 400
+            if count >= MAX_BOOKING_PER_SESSION:
+                return {"success": False, "error": "Your team already has the maximum number of bookings for this session"}, 400
+            
+            # check if booking conflicts with another booking by team
+            for b in bookings:
+                if b.booking_time == parsed_datetime:
+                    return {"success": False, "error": "Booking time conflicts with another booking"}, 400
+        elif user.type != "admin":
+            return {"success": False, "error": "Unauthorized"}, 400
         else:
             print("Admin team, skipping validation")
 
@@ -180,17 +189,21 @@ class BookingAdd(Resource):
             data = request.get_json()
 
         if not data.get("session_id"):
-            return {"success": False, "error": "Missing session_id"}, 400
+            return {"success": False, "error": "Missing session id"}, 400
         if not data.get("booking_time"):
-            return {"success": False, "error": "Missing booking_time"}, 400
+            return {"success": False, "error": "Missing booking time"}, 400
         
         booking = Booking.query.filter_by(session_id=data.get("session_id"), booking_time=data.get("booking_time")).first()
 
         if not booking:
             return {"success": False, "error": "Booking not found"}, 400
-
-        db.session.delete(booking)
-        db.session.commit()
+        
+        user = get_current_user_attrs()
+        if user.team_id == booking.team_id or user.type == "admin":
+            db.session.delete(booking)
+            db.session.commit()
+        else:
+            return {"success": False, "error": "Unauthorized"}, 400
 
         return {"success": True}
     
@@ -440,9 +453,9 @@ class Schedules(Resource):
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
         if not data.get("start_date"):
-            return {"success": False, "error": "Missing starting date"}, 400
+            return {"success": False, "error": "Missing start date"}, 400
         if not data.get("end_date"):
-            return {"success": False, "error": "Missing ending date"}, 400
+            return {"success": False, "error": "Missing end date"}, 400
         if not data.get("segment"):
             return {"success": False, "error": "Missing segment"}, 400
 

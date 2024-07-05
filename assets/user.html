@@ -350,7 +350,7 @@
             el.setAttribute("onclick", "deleteBookingModal(this)");
         }
         else {
-            // Display toast showing that the booking could not be made
+            $('#booking-conflict-toast-body').text(json.error);
             $('#booking-conflict-toast').toast('show');
         }
     }
