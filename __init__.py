@@ -15,8 +15,6 @@ from datetime import datetime
 
 bookings_namespace = Namespace("bookings", description="Endpoint for booking system")
 
-MAX_BOOKING_PER_SESSION = 2
-
 class Schedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80))
@@ -49,19 +47,22 @@ class Session(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80))
     description = db.Column(db.Text)
+    max_allowed = db.Column(db.Integer)
 
-    def __init__(self, name, description):
+    def __init__(self, name, description, max_allowed):
         self.name = name
         self.description = description
+        self.max_allowed = max_allowed
 
     def __repr__(self):
-        return "<Session {0} - {1} - {2}>".format(self.id, self.name, self.description)
+        return "<Session {0} - {1} - {2}>".format(self.id, self.name, self.max_allowed)
 
     def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "max_allowed": self.max_allowed
         }
 
 class SessionSchedule(db.Model):
@@ -88,7 +89,7 @@ class Booking(db.Model):
         self.session_id = session_id
 
     def __repr__(self):
-        return "<Booking {0} for team {1} at {2}>".format(self.id, self.team_id, self.booking_time)
+        return "<Booking {0} for team {1} at {2} in {3}>".format(self.id, self.team_id, self.booking_time, self.session_id)
     
     def serialize(self):
         booking_time = self.booking_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
@@ -128,7 +129,7 @@ class BookingAdd(Resource):
             return {"success": False, "error": "Missing session id"}, 400
 
         parsed_datetime = datetime.strptime(data.get("booking_time"), '%Y-%m-%dT%H:%M:%S.%fZ')
-        session_id = data.get("session_id")
+        session_id = int(data.get("session_id"))
         
         booking = Booking.query.filter_by(session_id=session_id, booking_time=parsed_datetime).first()
         if booking:
@@ -141,21 +142,17 @@ class BookingAdd(Resource):
         user = get_current_user_attrs()
         if user.type != "admin" and user.team_id == data.get("team_id"):
 
-            sessions = Session.query.filter_by(id=session_id).all()
-            
             # a team can have a maximum of X bookings per session
             bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
-            # filter down the bookings to only the ones found in sessions
-            bookings_for_session = [b for b in bookings if b.session_id in [bt.id for bt in sessions]]
+            # num_bookings_for_session = len([b for b in bookings if b.session_id == session_id])
+            num_bookings_for_session = 0
+            # only match if on same day
+            for b in bookings:
+                if b.session_id == session_id and b.booking_time.date() == parsed_datetime.date():
+                    num_bookings_for_session += 1
             
-            count = 0
-            for b in bookings_for_session:
-                # check if booking is on the same day
-                if b.booking_time.date() == parsed_datetime.date():
-                    count += 1
-                    print(count, repr(b), parsed_datetime.date())
-            if count >= MAX_BOOKING_PER_SESSION:
-                return {"success": False, "error": "Your team already has the maximum number of bookings for this session"}, 400
+            if num_bookings_for_session >= session.max_allowed:
+                return {"success": False, "error": "Your team already has the maximum number of bookings for this session on this day"}, 400
             
             # check if booking conflicts with another booking by team
             for b in bookings:
@@ -164,7 +161,7 @@ class BookingAdd(Resource):
         elif user.type != "admin":
             return {"success": False, "error": "Unauthorized"}, 400
         else:
-            print("Admin team, skipping validation")
+            print("Admin user, skipping checks")
 
         booking = Booking(
             team_id=data.get("team_id"),
@@ -234,11 +231,14 @@ class Sessions(Resource):
 
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
+        if not data.get("max_allowed"):
+            return {"success": False, "error": "Missing max allowed"}, 400
         if not data.get("schedule_ids"):
             return {"success": False, "error": "Missing schedule ids"}, 400
 
         session = Session(
             name=data.get("name"),
+            max_allowed=data.get("max_allowed"),
             description=data.get("description") if data.get("description") else ""
         )
         db.session.add(session)
@@ -328,6 +328,8 @@ class Sessions(Resource):
             return {"success": False, "error": "Missing id"}, 400
         if not data.get("name"):
             return {"success": False, "error": "Missing name"}, 400
+        if not data.get("max_allowed"):
+            return {"success": False, "error": "Missing max allowed"}, 400
         if not data.get("schedule_ids"):
             return {"success": False, "error": "Missing schedule ids"}, 400 
 
@@ -348,6 +350,7 @@ class Sessions(Resource):
 
         session.name = data.get("name")
         session.description = data.get("description") if data.get("description") else ""
+        session.max_allowed = data.get("max_allowed")
 
         db.session.commit()
 
