@@ -522,26 +522,9 @@ def load(app):
     def admin_bookings_listing():
         return render_template('plugins/bookings/assets/admin.html')
     
-    # add admin route to view bookings
-    @app.route("/admin/bookings/view", methods=['GET'])
-    @admins_only
-    def admin_bookings_view_listing():
-        return render_template('plugins/bookings/assets/admin_view.html')
-
     # add user route
     @app.route("/bookings", methods=['GET'])
     @authed_only
     def bookings_listing():
         return render_template('plugins/bookings/assets/user.html')
     
-    # add user route for mentor bookings
-    @app.route("/bookings/mentors", methods=['GET'])
-    @authed_only
-    def bookings_mentor_listing():
-        return render_template('plugins/bookings/assets/mentor.html')
-
-    # add route for guest mentors to view bookings
-    @app.route("/bookings/view", methods=['GET'])
-    @authed_only
-    def bookings_view_listing():
-        return render_template('plugins/bookings/assets/view.html')
