@@ -71,7 +71,7 @@
             <textarea name="description" placeholder="Session Description" class="form-control"></textarea>
         </div>
         <div class="form-group" id="sessionFormScheduleItems"></div>
-        <input type="submit" value="Create   Type" class="btn btn-primary">
+        <input type="submit" value="Create Session" class="btn btn-primary">
     </form>
 
     <h2>Current Sessions</h2>
@@ -93,7 +93,6 @@
 <script>
     const csrf = init.csrfNonce;
 
-    // on ready, get all booking types
     document.addEventListener("DOMContentLoaded", async function() {
         await getScheduleItems();
         await getSessions();
@@ -249,15 +248,15 @@
             }
         });
         const json = await response.json();
-        const bookingTypes = document.getElementById("sessions");
-        bookingTypes.innerHTML = "";
+        const sessionsContainer = document.getElementById("sessions");
+        sessionsContainer.innerHTML = "";
         for (const session of json.data) {
 
             const sessionDiv = document.createElement("div");
             sessionDiv.setAttribute("data-id", session.id);
             
             sessionDiv.innerHTML = `
-                <form action="/api/v1/bookings/types/${session.id}" class="my-3 pb-4">
+                <form action="/api/v1/bookings/session/${session.id}" class="my-3 pb-4">
                     <h3>Session #${session.id}</h3>
                     <input type="hidden" name="id" value="${session.id}">
                     <div class="form-group">
@@ -280,7 +279,7 @@
                 </form>
             `;
 
-            bookingTypes.appendChild(sessionDiv);
+            sessionsContainer.appendChild(sessionDiv);
             sessionDiv.addEventListener("submit",
                 function(event) {
                     event.preventDefault();
