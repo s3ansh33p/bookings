@@ -109,6 +109,14 @@ class BookingAdd(Resource):
     def get(self):
         bookings = Booking.query.all()
         bookings = [booking.serialize() for booking in bookings]
+        user = get_current_user_attrs()
+        user_team_id = user.team_id
+        team = Teams.query.filter_by(id=user_team_id).first()
+        # In future, maybe have allowed users e.g. mentors etc in a separate table
+        if user.type != "admin" and team.name != "Admin":
+            for booking in bookings:
+                if booking["team_id"] != user_team_id:
+                    booking["team_id"] = 0
         return {"success": True, "data": bookings}
     
     """
@@ -492,18 +500,6 @@ class WorkshopsDelete(Resource):
             
         db.session.commit()
         return {"success": True}
-
-@bookings_namespace.route("/teams")
-class BookingTeams(Resource):
-    """
-    The Purpose of this API Endpoint is to allow a user to view all teams.
-    """
-
-    @authed_only
-    def get(self):
-        teams = Teams.query.all()
-        teams = [{"id": team.id, "name": team.name} for team in teams]
-        return {"success": True, "data": teams}
 
 def load(app):
 

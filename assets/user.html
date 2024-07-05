@@ -168,15 +168,36 @@ th, td {
 
 <script>
     const csrf = init.csrfNonce;
+    window.admin = false;
 
     // on ready, get all bookings
     document.addEventListener("DOMContentLoaded", async function() {
+        // this is fine as server side already hides team_ids from non-admins
+        if (init.teamName == "Admin") {
+            await loadAdmin();
+        }
         const scheduleItems = await getScheduleItems();
         if (!scheduleItems.success) return console.error("Failed to get schedule items");
         
         window.scheduleItems = scheduleItems.data;
         createSessionTypeOptions();
     });
+
+    async function loadAdmin() {
+        // this is fine up to 50 teams so using it we reach that point
+        // left as an exercise to the reader a better way, e.g. custom route likely
+        const response = await fetch('/api/v1/teams', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRF-Token': csrf
+            }
+        });
+        const json = await response.json();
+        if (!json.success) return console.error("Failed to get teams");
+        window.teams = json.data;
+        window.admin = true;
+    }
 
     async function loadBookingInformation(schedule_id) {
         const sessions = await getSesssions(schedule_id);
@@ -288,8 +309,16 @@ th, td {
                 for (let k = 0; k < curTimeBookings.length; k++) {
                     const booking = curTimeBookings[k];
                     if (booking.session_id == sessions.data[j].id) {
-                        if (init.teamId == booking.team_id) bookingField += `<button class="btn btn-yours w-100" data-time="${timeString}" data-type="${sessions.data[j].id}" onclick="deleteBookingModal(this)">Your Booking</button>`
-                        else bookingField += `<button class="btn btn-booked w-100">Booked</button>`
+                        if (init.teamId == booking.team_id) {
+                            bookingField += `<button class="btn btn-yours w-100" data-time="${timeString}" data-type="${sessions.data[j].id}" onclick="deleteBookingModal(this)">Your Booking</button>`
+                        } else {
+                            let teamName = "Booked";
+                            if (window.admin) {
+                                const team = window.teams.find(team => team.id == booking.team_id);
+                                if (team) teamName = team.name;
+                            }
+                            bookingField += `<button class="btn btn-booked w-100">${teamName}</button>`
+                        }
                     }
                 }
                 if (bookingField == `<td class="p-0">`) {
