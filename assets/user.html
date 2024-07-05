@@ -81,25 +81,24 @@
 </style>
 
 <main class="container pb-3">
-    <div class="d-flex align-items-center">
-        <h1>Workshop Bookings - Saturday</h1>
-        <select class="form-control" id="schedule-selection">
-            <option disabled>Loading...</option>
-        </select>
-
+    <div class="align-items-center row">
+        <div class="col-12 col-md-6 col-lg-4 mb-1">
+            <h1 class="mr-3">Bookings</h1>
+        </div>
+        <div class="col-12 col-md-6 col-lg-8 mb-1">
+            <select class="form-control" id="schedule-selection">
+                <option disabled>Loading...</option>
+            </select>
+        </div>
     </div>
-    <p style="font-style: italic;">Note: Bookings are made below the descriptions</p>
 
-    <!-- section for workshop descriptions -->
-    <div class="row mt-5" id="workshop-descriptions">
+    <div class="row mt-3" id="schedule-descriptions">
         <div class="col">
             <p>Loading descriptions...</p>
         </div>
     </div>
     
-    <!-- bookings div once loaded -->
     <div id="bookings" class="mt-3">
-        <!-- start with loading status -->
         <p>Loading table...</p>
     </div>
 
@@ -132,7 +131,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <div class="toast-body">
+            <div class="toast-body" id="booking-conflict-toast-body">
                 Your team already has 2 hours worth of bookings for this day
             </div>
         </div>
@@ -146,6 +145,7 @@
     document.addEventListener("DOMContentLoaded", async function() {
         const scheduleItems = await getScheduleItems();
         if (!scheduleItems.success) return console.error("Failed to get schedule items");
+        
         window.scheduleItems = scheduleItems.data;
         createSessionTypeOptions();
     });
@@ -153,8 +153,8 @@
     async function loadBookingInformation(schedule_id) {
         const sessions = await getSesssions(schedule_id);
         const bookings = await getBookings(sessions);
-        addWorkshopDescriptions(sessions);
-        createBookingTable(schedule_id, sessions, bookings);
+        await createBookingTable(schedule_id, sessions, bookings);
+        await addScheduleDescriptions(sessions);
     }
 
     function createSessionTypeOptions() {
@@ -170,24 +170,30 @@
         loadBookingInformation(items[0].id);
     }
 
-    async function addWorkshopDescriptions(bookingTypes) {
-        // add descriptions to workshop descriptions div
-        const workshopDescriptions = document.getElementById("workshop-descriptions");
-        workshopDescriptions.innerHTML = "";
-        for (bookingType of bookingTypes.data) {
-            const workshopDescription = document.createElement("div");
-            // add class to div
-            workshopDescription.classList.add("col-12", "col-md-6", "col-lg-4", "mb-1");
-
-            workshopDescription.innerHTML = `
-                <h2>${bookingType.name}</h2>
-                ${bookingType.description}
+    async function addScheduleDescriptions(sessions) {
+        const scheduleDescriptions = document.getElementById("schedule-descriptions");
+        scheduleDescriptions.innerHTML = "";
+        if (window.scheduleItem.header != "") {
+            scheduleDescriptions.innerHTML = `
+                <div class="col-12">
+                    ${window.scheduleItem.header}
+                </div>
             `;
-            workshopDescriptions.appendChild(workshopDescription);
+            return;
+        }
+        for (session of sessions.data) {
+            const scheduleDescription = document.createElement("div");
+            scheduleDescription.classList.add("col-12", "col-md-6", "col-lg-4", "mb-1");
+
+            scheduleDescription.innerHTML = `
+                <h2>${session.name}</h2>
+                ${session.description}
+            `;
+            scheduleDescriptions.appendChild(scheduleDescription);
         }
     }
 
-    async function createBookingTable(schedule_id, bookingTypes, bookings) {
+    async function createBookingTable(schedule_id, sessions, bookings) {
         window.scheduleItem = window.scheduleItems.find(item => item.id == schedule_id);
         
         const startDate = new Date(scheduleItem.start_date);
@@ -197,16 +203,14 @@
 
         const segment = scheduleItem.segment;
 
-        let workshopName = "TMP"
-
         // generate table html
         let html = `<table class="table table-bordered text-center">
             <thead>
                 <tr>
                     <th class="p-0" scope="col">Time</th>`
         // add booking type headers
-        for (let i = 0; i < bookingTypes.data.length; i++) {
-            html += `<th class="p-0" scope="col" data-id="${bookingTypes.data[i].id}">${bookingTypes.data[i].name}</th>`
+        for (let i = 0; i < sessions.data.length; i++) {
+            html += `<th class="p-0" scope="col" data-id="${sessions.data[i].id}">${sessions.data[i].name}</th>`
         }
         html += `</tr>
             </thead>`
@@ -250,18 +254,18 @@
             }
 
             // reading from curTimeBookings, add booking fields
-            for (let j = 0; j < bookingTypes.data.length; j++) {
+            for (let j = 0; j < sessions.data.length; j++) {
                 let bookingField = `<td class="p-0">`
                 // loop through curTimeBookings and add bookingField if type matches
                 for (let k = 0; k < curTimeBookings.length; k++) {
                     const booking = curTimeBookings[k];
-                    if (booking.session_id == bookingTypes.data[j].id) {
-                        if (init.teamId == booking.team_id) bookingField += `<button class="btn btn-success w-100" data-time="${timeString}" data-type="${bookingTypes.data[j].id}" onclick="deleteBookingModal(this)">Your Booking</button>`
+                    if (booking.session_id == sessions.data[j].id) {
+                        if (init.teamId == booking.team_id) bookingField += `<button class="btn btn-success w-100" data-time="${timeString}" data-type="${sessions.data[j].id}" onclick="deleteBookingModal(this)">Your Booking</button>`
                         else bookingField += `<button class="btn btn-warning w-100">Booked</button>`
                     }
                 }
                 if (bookingField == `<td class="p-0">`) {
-                    bookingField += `<button class="btn btn-primary w-100" data-time="${timeString}" data-type="${bookingTypes.data[j].id}" onclick="createBooking(this)">Book</button>`
+                    bookingField += `<button class="btn btn-primary w-100" data-time="${timeString}" data-type="${sessions.data[j].id}" onclick="createBooking(this)">Book</button>`
                 }
                 bookingField += `</td>`
                 bookingFields += bookingField;
@@ -271,17 +275,11 @@
                 <td class="p-0 px-1 align-middle">${timeString}</td>
                 ${bookingFields}
             </tr>`
-            // const row = `<tr>
-            //     <td>${timeString} - ${endTimeString}</td>
-            //     ${bookingFields}
-            // </tr>`
             rows.push(row)
         }
 
-        // add rows to html
         html += rows.join("")
         html += "</table>"
-        // add to bookings div
         const bookingsDiv = document.getElementById("bookings");
         bookingsDiv.innerHTML = html;
     }
@@ -293,7 +291,6 @@
         let delBtn = document.getElementById("delete-booking-modal-btn");
         delBtn.setAttribute("onclick", `deleteBooking('${time}', ${type})`);
 
-        // set variable for deletion
         $('#delete-booking-modal').modal('show');
     }
 
@@ -314,16 +311,13 @@
             body: JSON.stringify(data)
         });
         const json = await response.json();
-        // on success, update element
         if (json.success) {
             // query button by time and type to get element
             let el = document.querySelector(`button[data-time="${segment}"][data-type="${session_id}"]`);
             el.innerHTML = "Book";
             el.classList.remove("btn-success");
             el.classList.add("btn-primary");
-            // change onclick
             el.setAttribute("onclick", "createBooking(this)");
-            // also close modal
             $('#delete-booking-modal').modal('hide');
         }
     }
@@ -335,13 +329,11 @@
         const formatSegment = segment.length < 5 ? "0" + segment : segment;
         let time = new Date(window.scheduleItem.start_date.slice(0, 10) + "T" + formatSegment + ":00.000Z");
         time = new Date(time.getTime() + (time.getTimezoneOffset() * 60000)).toISOString();
-        // temp data
         const data = {
             "team_id": init.teamId,
             "booking_time": time,
             "session_id": session_id
         }
-        // post req to /api/v1/bookings
         const response = await fetch('/api/v1/bookings', {
             method: 'POST',
             headers: {
@@ -351,12 +343,10 @@
             body: JSON.stringify(data)
         });
         const json = await response.json();
-        // on success, update element
         if (json.success) {
             el.innerHTML = "Your Booking";
             el.classList.remove("btn-primary");
             el.classList.add("btn-success");
-            // change onclick
             el.setAttribute("onclick", "deleteBookingModal(this)");
         }
         else {
@@ -365,8 +355,7 @@
         }
     }
 
-    async function getBookings(bookingTypes) {
-        // get req to /api/v1/bookings/view
+    async function getBookings(sessions) {
         const response = await fetch('/api/v1/bookings', {
             method: 'GET',
             headers: {
@@ -376,10 +365,9 @@
         });
         const json = await response.json();
 
-        // instead filter so only bookings with session_id in bookingTypes are returned
+        // instead filter so only bookings with session_id in sessions are returned
         let filtered = json.data.filter(booking => {
-            // return booking if in bookingTypes
-            return bookingTypes.data.some(type => type.id == booking.session_id);
+            return sessions.data.some(type => type.id == booking.session_id);
         });
         // sort by booking_time
         filtered.sort((a, b) => {
@@ -392,8 +380,6 @@
     }
 
     async function getSesssions(schedule_id) {
-        // get req to /api/v1/bookings/types
-        
         const response = await fetch(`/api/v1/bookings/session?schedule_id=${schedule_id}`, {
             method: 'GET',
             headers: {
