@@ -167,7 +167,7 @@
                     const segment = itemDiv.querySelector("select[name=segment]").value;
                     const header = itemDiv.querySelector("textarea[name=header]").value;
                     let mode = "update";
-                    if (event.submitter.value == "Delete Session") {
+                    if (event.submitter.value == "Delete Schedule Item") {
                         mode = "delete";
                     }
                     individualScheduleItemCallback(id, name, start_date, end_date, segment, header, mode);
@@ -296,18 +296,18 @@
                     }
 
                     let mode = "update";
-                    if (event.submitter.value == "Delete Schedule Item") {
+                    if (event.submitter.value == "Delete Session") {
                         mode = "delete";
                     }
 
-                    individualBookingTypeCallback(id, name, max_allowed, description, schedule_ids, mode);
+                    individualSessionCallback(id, name, max_allowed, description, schedule_ids, mode);
                 }
             );
             
         }
     }
 
-    async function individualBookingTypeCallback(id, name, max_allowed, description, schedule_ids, mode) {
+    async function individualSessionCallback(id, name, max_allowed, description, schedule_ids, mode) {
         if (mode == "delete") {
             const confirmed = confirm("Are you sure you want to delete this session? This action cannot be undone.")
             if (!confirmed) return;
