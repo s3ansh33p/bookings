@@ -140,6 +140,23 @@ th, td {
 button.btn {
     border-radius: 0;
 }
+
+/* core theme css */
+button.close {
+    padding: 0;
+    background-color: transparent;
+    border: 0;
+    appearance: none;
+    float: right;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    text-shadow: 0 1px 0 #fff;
+    opacity: .5;
+}
+.close:not(:disabled):not(.disabled):focus, .close:not(:disabled):not(.disabled):hover {
+    opacity: .75;
+}
 </style>
 <!-- Need JQ for core-beta -->
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
