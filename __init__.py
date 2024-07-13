@@ -148,7 +148,7 @@ class BookingAdd(Resource):
             return {"success": False, "error": "Session not found"}, 400
         
         user = get_current_user_attrs()
-   	user_team_id = user.team_id
+        user_team_id = user.team_id
         team = Teams.query.filter_by(id=user_team_id).first()
         if user.type != "admin" and user.team_id == data.get("team_id") and team.name != "Admin":
 
