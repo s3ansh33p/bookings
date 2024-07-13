@@ -148,7 +148,9 @@ class BookingAdd(Resource):
             return {"success": False, "error": "Session not found"}, 400
         
         user = get_current_user_attrs()
-        if user.type != "admin" and user.team_id == data.get("team_id"):
+   	user_team_id = user.team_id
+        team = Teams.query.filter_by(id=user_team_id).first()
+        if user.type != "admin" and user.team_id == data.get("team_id") and team.name != "Admin":
 
             # a team can have a maximum of X bookings per session
             bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
@@ -166,10 +168,10 @@ class BookingAdd(Resource):
             for b in bookings:
                 if b.booking_time == parsed_datetime:
                     return {"success": False, "error": "Booking time conflicts with another booking"}, 400
-        elif user.type != "admin":
+        elif user.type != "admin" and team.name != "Admin":
             return {"success": False, "error": "Unauthorized"}, 400
         else:
-            print("Admin user, skipping checks")
+            print("Admin user/team, skipping checks")
 
         booking = Booking(
             team_id=data.get("team_id"),
