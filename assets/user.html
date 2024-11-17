@@ -3,42 +3,6 @@
 {% block content %}
 
 <style>
-/* 
-    Change as needed to your theme
-*/
-:root {
-    --c1: #FFB001;
-    --c2: #2F1244;
-    --c3: #D80140;
-    --c4: #171F69;
-
-    --c3-h: #a40030;
-    --purple: #6f42c1;
-    --purple-h: #51308e;
-
-    --black: #000;
-    --font-color: #fff;
-    --background: #2f1244;
-    --background-rgb: 47,18,68;
-    --primary: #FFB001;
-    --highlight: #d80140;
-    --bs-font-sans-serif: 'Pattanakarn', sans-serif;
-    --font-primary: 'Montserrat', sans-serif;
-}
-
-body {
-    font-size: 1rem;
-    line-height: 1.5;
-    color: var(--font-color);
-    background-color: var(--background);
-    -webkit-text-size-adjust: 100%;
-    -webkit-tap-highlight-color: transparent;
-    min-height: 100vh;
-}
-
-html {
-    background-color: var(--background);
-}
 
 #bookings {
     overflow-x: scroll;
@@ -54,108 +18,12 @@ html {
     border-radius: 15px;
 }
 
-#schedule-selection {
-    background: var(--c4) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='4' height='5' viewBox='0 0 4 5'%3e%3cpath fill='%23ffffff' d='M2 0L0 2h4zm0 5L0 3h4z'/%3e%3c/svg%3e") no-repeat right .75rem center/8px 10px;
-    color: var(--font-color);
-    border: 2px solid var(--c1);
-    box-shadow: none;
-}
-
-#schedule-selection option {
-    background-color: var(--c4);
-    color: var(--font-color);
-}
-
-.select-container {
-    background: var(--c4);
-}
-
-.table {
-    background-color: var(--background);
-    color: var(--font-color);
-    border: 2px solid var(--primary);
-}
-
-th, td {
-    border: 1px solid var(--primary)!important;
-}
-
-.btn-book {
-    background-color: var(--c2);
-    color: var(--font-color);
-}
-.btn-book:hover {
-    background-color: var(--c1);
-    color: var(--black);
-}
-
-.btn-booked {
-    background-color: var(--c3);
-    color: var(--font-color);
-}
-.btn-booked:hover {
-    background-color: var(--c3-h);
-    color: var(--font-color);
-}
-
-.btn-yours {
-    background-color: var(--purple);
-    color: var(--font-color);
-}
-.btn-yours:hover {
-    background-color: var(--purple-h);
-    color: var(--font-color);
-}
-
-.toast {
-    border: 2px solid var(--c1);
-    background-color: hsl(0deg 0% 0% / 60%);
-	}
-.toast-header {
-    background-color: var(--c3);
-    color: var(--font-color);
-}
-.toast-header .close {
-    color: var(--font-color);
-    text-shadow: none;
-    opacity: 1;
-}
-.modal-content {
-    background-color: var(--background);
-    border: 2px solid var(--c1);
-}
-.modal-backdrop.show {
-    opacity: 0.75;
-}
-.modal .close {
-    color: var(--font-color);
-}
-.modal .close:hover {
-    color: var(--font-color);
-}
 /* CORE BETA FIXES */
 .table>tbody>tr>td.p-0 {
     padding: 0 !important;
 }
 button.btn {
     border-radius: 0;
-}
-
-/* core theme css */
-button.close {
-    padding: 0;
-    background-color: transparent;
-    border: 0;
-    appearance: none;
-    float: right;
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1;
-    text-shadow: 0 1px 0 #fff;
-    opacity: .5;
-}
-.close:not(:disabled):not(.disabled):focus, .close:not(:disabled):not(.disabled):hover {
-    opacity: .75;
 }
 </style>
 <!-- Need JQ for core-beta -->
@@ -165,12 +33,10 @@ button.close {
         <div class="col-12 col-md-6 col-lg-4 mb-1">
             <h1 class="mr-3">Bookings</h1>
         </div>
-        <div class="col-12 col-md-6 col-lg-8 mb-1">
-	    <div class="select-container">
-		<select class="form-control" id="schedule-selection">
-                    <option disabled>Loading...</option>
-                </select>
-	    </div>
+        <div class="col-12 col-md-6 col-lg-3 mb-1">
+            <select class="form-select bg-primary text-dark" id="schedule-selection" >
+                <option disabled>Loading...</option>
+            </select>
         </div>
     </div>
 
@@ -190,7 +56,7 @@ button.close {
             <div class="modal-content">
                 <div class="modal-header">
                   <h5 class="modal-title" id="delete-model-label">Confirm Booking Cancellation</h5>
-                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <button type="button" class="btn btn-warning ms-auto" data-bs-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                   </button>
                 </div>
@@ -198,8 +64,8 @@ button.close {
                   Note that you may rebook this slot at a later time, but it will be subject to availability.
                 </div>
                 <div class="modal-footer">
-                  <button type="button" class="btn btn-yours" data-dismiss="modal">Close</button>
-                  <button type="button" class="btn btn-booked" id="delete-booking-modal-btn">Confirm Cancellation</button>
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                  <button type="button" class="btn btn-info" id="delete-booking-modal-btn">Confirm Cancellation</button>
                 </div>
             </div>
         </div>
@@ -209,7 +75,7 @@ button.close {
         <div role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header">
                 <strong class="mr-auto">Error</strong>
-                <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+                <button type="button" class="btn btn-warning ms-auto" data-bs-dismiss="toast" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -262,6 +128,10 @@ button.close {
 
     function createSessionTypeOptions() {
         const items = window.scheduleItems;
+        if (items.length == 0) {
+            console.error("No schedule items found");
+            return;
+        }
         const selectElement = document.getElementById("schedule-selection");
         selectElement.innerHTML = "";
         for (item of items) {
@@ -364,19 +234,19 @@ button.close {
                     const booking = curTimeBookings[k];
                     if (booking.session_id == sessions.data[j].id) {
                         if (init.teamId == booking.team_id) {
-                            bookingField += `<button class="btn btn-yours w-100" data-time="${timeString}" data-type="${sessions.data[j].id}" onclick="deleteBookingModal(this)">Your Booking</button>`
+                            bookingField += `<button class="btn btn-secondary w-100" data-time="${timeString}" data-type="${sessions.data[j].id}" onclick="deleteBookingModal(this)">Your Booking</button>`
                         } else {
                             let teamName = "Booked";
                             if (window.admin) {
                                 const team = window.teams.find(team => team.id == booking.team_id);
                                 if (team) teamName = team.name;
                             }
-                            bookingField += `<button class="btn btn-booked w-100">${teamName}</button>`
+                            bookingField += `<button class="btn btn-dark w-100">${teamName}</button>`
                         }
                     }
                 }
                 if (bookingField == `<td class="p-0">`) {
-                    bookingField += `<button class="btn btn-book w-100" data-time="${timeString}" data-type="${sessions.data[j].id}" onclick="createBooking(this)">Book</button>`
+                    bookingField += `<button class="btn btn-info w-100" data-time="${timeString}" data-type="${sessions.data[j].id}" onclick="createBooking(this)">Book</button>`
                 }
                 bookingField += `</td>`
                 bookingFields += bookingField;
@@ -426,8 +296,8 @@ button.close {
             // query button by time and type to get element
             let el = document.querySelector(`button[data-time="${segment}"][data-type="${session_id}"]`);
             el.innerHTML = "Book";
-            el.classList.remove("btn-yours");
-            el.classList.add("btn-book");
+            el.classList.remove("btn-secondary");
+            el.classList.add("btn-info");
             el.setAttribute("onclick", "createBooking(this)");
             $('#delete-booking-modal').modal('hide');
         }
@@ -456,8 +326,8 @@ button.close {
         const json = await response.json();
         if (json.success) {
             el.innerHTML = "Your Booking";
-            el.classList.remove("btn-book");
-            el.classList.add("btn-yours");
+            el.classList.add("btn-secondary");
+            el.classList.remove("btn-info");
             el.setAttribute("onclick", "deleteBookingModal(this)");
         }
         else {
@@ -475,6 +345,7 @@ button.close {
             }
         });
         const json = await response.json();
+        if (json.data.length == 0) return {data: []};
 
         // instead filter so only bookings with session_id in sessions are returned
         let filtered = json.data.filter(booking => {
