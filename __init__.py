@@ -24,12 +24,13 @@ class Schedule(db.Model):
     header = db.Column(db.Text)
     hidden = db.Column(db.Boolean, default=False)
 
-    def __init__(self, name, start_date, end_date, segment, header):
+    def __init__(self, name, start_date, end_date, segment, header, hidden):
         self.name = name
         self.start_date = start_date
         self.end_date = end_date
         self.segment = segment
         self.header = header
+        self.hidden = hidden
 
     def __repr__(self):
         return "<Schedule {0} - {1} - {2} - {3} - {4} - {5}>".format(self.id, self.name, self.start_date, self.end_date, self.segment, self.hidden)
@@ -115,7 +116,7 @@ class BookingAdd(Resource):
         user_team_id = user.team_id
         team = Teams.query.filter_by(id=user_team_id).first()
         # In future, maybe have allowed users e.g. mentors etc in a separate table
-        if user.type != "admin" and team.name != "Admin":
+        if user.type != "admin" and team and team.name != "Admin":
             for booking in bookings:
                 if booking["team_id"] != user_team_id:
                     booking["team_id"] = 0
@@ -152,7 +153,7 @@ class BookingAdd(Resource):
         user = get_current_user_attrs()
         user_team_id = user.team_id
         team = Teams.query.filter_by(id=user_team_id).first()
-        if user.type != "admin" and user.team_id == data.get("team_id") and team.name != "Admin":
+        if user.type != "admin" and user.team_id == data.get("team_id") and team and team.name != "Admin":
 
             # a team can have a maximum of X bookings per session
             bookings = Booking.query.filter_by(team_id=data.get("team_id")).all()
@@ -170,7 +171,7 @@ class BookingAdd(Resource):
             for b in bookings:
                 if b.booking_time == parsed_datetime:
                     return {"success": False, "error": "Booking time conflicts with another booking"}, 400
-        elif user.type != "admin" and team.name != "Admin":
+        elif user.type != "admin" and team and team.name != "Admin":
             return {"success": False, "error": "Unauthorized"}, 400
         else:
             print("Admin user/team, skipping checks")
@@ -426,7 +427,11 @@ class Schedules(Resource):
     """
     @authed_only
     def get(self):
-        items = Schedule.query.filter_by(hidden=False).all()
+        user = get_current_user_attrs()
+        if user.type == "admin":
+            items = Schedule.query.all()
+        else:
+            items = Schedule.query.filter_by(hidden=False).all()
         items = [item.serialize() for item in items]
         return {"success": True, "data": items}
 
