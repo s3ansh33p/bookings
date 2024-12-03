@@ -22,6 +22,7 @@ class Schedule(db.Model):
     end_date = db.Column(db.DateTime)
     segment = db.Column(db.Integer)
     header = db.Column(db.Text)
+    hidden = db.Column(db.Boolean, default=False)
 
     def __init__(self, name, start_date, end_date, segment, header):
         self.name = name
@@ -31,7 +32,7 @@ class Schedule(db.Model):
         self.header = header
 
     def __repr__(self):
-        return "<Schedule {0} - {1} - {2} - {3} - {4}>".format(self.id, self.name, self.start_date, self.end_date, self.segment)
+        return "<Schedule {0} - {1} - {2} - {3} - {4} - {5}>".format(self.id, self.name, self.start_date, self.end_date, self.segment, self.hidden)
 
     def serialize(self):
         return {
@@ -40,7 +41,8 @@ class Schedule(db.Model):
             "start_date": self.start_date.isoformat(),
             "end_date": self.end_date.isoformat(),
             "segment": self.segment,
-            "header": self.header
+            "header": self.header,
+            "hidden": self.hidden
         }
 
 class Session(db.Model):
@@ -410,7 +412,8 @@ class Schedules(Resource):
             start_date=data.get("start_date"),
             end_date=data.get("end_date"),
             segment=data.get("segment"),
-            header=data.get("header") if data.get("header") else ""
+            header=data.get("header") if data.get("header") else "",
+            hidden=data.get("hidden") if data.get("hidden") else False
         )
 
         db.session.add(schedule_item)
@@ -423,7 +426,7 @@ class Schedules(Resource):
     """
     @authed_only
     def get(self):
-        items = Schedule.query.all()
+        items = Schedule.query.filter_by(hidden=False).all()
         items = [item.serialize() for item in items]
         return {"success": True, "data": items}
 
@@ -479,6 +482,7 @@ class Schedules(Resource):
         item.end_date = data.get("end_date")
         item.segment = data.get("segment")
         item.header = data.get("header") if data.get("header") else ""
+        item.hidden = data.get("hidden") if data.get("hidden") else False
         
         db.session.commit()
 
@@ -504,9 +508,6 @@ class WorkshopsDelete(Resource):
         return {"success": True}
 
 def load(app):
-
-    # drop table workshops
-    # Workshop.__table__.drop(app.db.engine)
 
     upgrade()
     
