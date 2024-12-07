@@ -5,7 +5,8 @@
 <style>
 
 #bookings {
-    overflow-x: scroll;
+    max-height: 80vh;
+    overflow: auto;
 }
 
 #bookings::-webkit-scrollbar {
@@ -31,6 +32,12 @@
 
 td > button {
     height: 100%;
+}
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1; /* Ensure the header is above other content */
 }
 
 /* CORE BETA FIXES */
@@ -60,11 +67,10 @@ button.btn {
             <p>Loading descriptions...</p>
         </div>
     </div>
-    
+
     <div id="bookings" class="mt-3 position-relative">
         <p>Loading table...</p>
     </div>
-
 
     <div class="modal fade" id="delete-booking-modal" tabindex="-1" aria-labelledby="delete-model-label" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
