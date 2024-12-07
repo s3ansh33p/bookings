@@ -70,7 +70,7 @@ button.btn {
             </div>
         </div>
     </div>
-    
+
     <div id="booking-conflict-toast" class="toast hide position-fixed bottom-0 right-0 p-3 m-3" data-delay="3000" style="z-index: 5; right: 0; bottom: 0;">
         <div role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header">
@@ -85,6 +85,10 @@ button.btn {
         </div>
     </div>
 </main>
+
+<div class="position-fixed bottom-0 right-0 d-flex justify-content-end w-100 p-2 d-none" id="refresh-timer-container">
+    <div class="p-2 bg-dark rounded border border-primary">Refreshing in <span id="refresh-timer">30</span> seconds</div>
+</div>
 
 <script>
     const csrf = init.csrfNonce;
@@ -117,6 +121,20 @@ button.btn {
         if (!json.success) return console.error("Failed to get teams");
         window.teams = json.data;
         window.admin = true;
+        setupRefreshTimer();
+    }
+
+    function setupRefreshTimer() {
+        document.getElementById("refresh-timer-container").classList.remove("d-none");
+        let timer = 30;
+        setInterval(() => {
+            timer--;
+            if (timer == 0) {
+                loadBookingInformation(window.scheduleItem.id);
+                timer = 30;
+            }
+            document.getElementById("refresh-timer").innerText = timer;
+        }, 1000);
     }
 
     async function loadBookingInformation(schedule_id) {
