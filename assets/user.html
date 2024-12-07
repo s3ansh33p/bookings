@@ -325,6 +325,7 @@ button.btn {
 
             const el = document.querySelector(".current-segment")
             el.style.top = height + "px";
+            el.style.width = document.getElementById("bookings").children[1].getBoundingClientRect().width + "px";
             el.classList.remove("d-none");
         }
     }
