@@ -25,6 +25,14 @@
     border: 2px solid orange;
 }
 
+.table {
+    height: 1px;
+}
+
+td > button {
+    height: 100%;
+}
+
 /* CORE BETA FIXES */
 .table>tbody>tr>td.p-0 {
     padding: 0 !important;
@@ -136,6 +144,7 @@ button.btn {
     }
 
     function setupRefreshTimer() {
+        return;
         document.getElementById("refresh-timer-container").classList.remove("d-none");
         let timer = 30;
         setInterval(() => {
