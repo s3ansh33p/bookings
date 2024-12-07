@@ -18,6 +18,13 @@
     border-radius: 15px;
 }
 
+.current-segment {
+    position: relative;
+    width: 100%;
+    top: 0;
+    border: 2px solid orange;
+}
+
 /* CORE BETA FIXES */
 .table>tbody>tr>td.p-0 {
     padding: 0 !important;
@@ -46,7 +53,7 @@ button.btn {
         </div>
     </div>
     
-    <div id="bookings" class="mt-3">
+    <div id="bookings" class="mt-3 position-relative">
         <p>Loading table...</p>
     </div>
 
@@ -124,6 +131,10 @@ button.btn {
         setupRefreshTimer();
     }
 
+    function checkBetweenDates(date, start, end) {
+        return new Date(date) >= new Date(start) && new Date(date) <= new Date(end);
+    }
+
     function setupRefreshTimer() {
         document.getElementById("refresh-timer-container").classList.remove("d-none");
         let timer = 30;
@@ -186,6 +197,7 @@ button.btn {
 
     async function createBookingTable(schedule_id, sessions, bookings) {
         window.scheduleItem = window.scheduleItems.find(item => item.id == schedule_id);
+        const isBetweenDates = checkBetweenDates(new Date(), window.scheduleItem.start_date, window.scheduleItem.end_date);
         
         const startDate = new Date(scheduleItem.start_date);
         const startTime = startDate.getHours() * 60 + startDate.getMinutes(); 
@@ -193,9 +205,10 @@ button.btn {
         const endTime = endDate.getHours() * 60 + endDate.getMinutes();
 
         const segment = scheduleItem.segment;
+        let currentSegment = null;
 
         // generate table html
-        let html = `<table class="table table-bordered text-center mb-1">
+        let html = `<div class="current-segment d-none"></div><table class="table table-bordered text-center mb-1">
             <thead>
                 <tr>
                     <th class="px-1 p-0" scope="col">Time</th>`
@@ -224,6 +237,14 @@ button.btn {
             const curMin = i % 60;
 
             const timeString = `${curHour}:${curMin < 10 ? "0" + curMin : curMin}`;
+
+            const formatSegment = timeString.length < 5 ? "0" + timeString : timeString;
+            const time = new Date(window.scheduleItem.start_date.slice(0, 10) + "T" + formatSegment + ":00.000Z");
+            startSegment = new Date(time.getTime() + (time.getTimezoneOffset() * 60000)).toISOString();
+            endSegment = new Date(startSegment).setMinutes(new Date(startSegment).getMinutes() + segment);
+            if (checkBetweenDates(new Date(), startSegment, endSegment)) {
+                currentSegment = timeString;
+            }
 
             let bookingFields = "";
             let curTime = new Date(startDate);
@@ -281,6 +302,31 @@ button.btn {
         html += "</table>"
         const bookingsDiv = document.getElementById("bookings");
         bookingsDiv.innerHTML = html;
+
+        if (currentSegment && admin) {
+            const curTime = new Date();
+            const curHour = curTime.getHours();
+            const curMin = curTime.getMinutes();
+            const curSegment = curHour * 60 + curMin;
+            const segmentProgress = (curSegment - startTime) / segment;
+
+            const thead = document.getElementById("bookings").children[1].children[0];
+            const trs = document.getElementById("bookings").children[1].children[1];
+            let height = thead.clientHeight;
+            let i = 0;
+            for (; i < Math.floor(segmentProgress); i++) {
+                height += trs.children[i].getBoundingClientRect().height;
+            }
+
+            if (i < trs.children.length) {
+                const tr = trs.children[i];
+                height += tr.getBoundingClientRect().height * (segmentProgress - i) + 1;
+            }
+
+            const el = document.querySelector(".current-segment")
+            el.style.top = height + "px";
+            el.classList.remove("d-none");
+        }
     }
     
     function deleteBookingModal(el) {
